@@ -1,11 +1,11 @@
 """API client for Kaia Solutions Portal API."""
+
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urljoin
 
 import requests
-
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +45,9 @@ class APIClient:
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Make HTTP request with retry logic.
 
         Args:
@@ -86,9 +86,7 @@ class APIClient:
                     # Don't retry authentication errors
                     logger.error(f"Authentication error: {e}")
                     raise
-                logger.warning(
-                    f"HTTP error on attempt {attempt + 1}: {e}"
-                )
+                logger.warning(f"HTTP error on attempt {attempt + 1}: {e}")
                 attempt += 1
                 if attempt < self.retry_attempts:
                     time.sleep(2**attempt)  # Exponential backoff
@@ -96,22 +94,16 @@ class APIClient:
                     raise
 
             except requests.exceptions.RequestException as e:
-                logger.warning(
-                    f"Request error on attempt {attempt + 1}: {e}"
-                )
+                logger.warning(f"Request error on attempt {attempt + 1}: {e}")
                 attempt += 1
                 if attempt < self.retry_attempts:
                     time.sleep(2**attempt)
                 else:
                     raise
 
-        raise requests.exceptions.RequestException(
-            f"Failed after {self.retry_attempts} attempts"
-        )
+        raise requests.exceptions.RequestException(f"Failed after {self.retry_attempts} attempts")
 
-    def get(
-        self, endpoint: str, params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def get(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """Make GET request.
 
         Args:
@@ -126,9 +118,9 @@ class APIClient:
     def post(
         self,
         endpoint: str,
-        json: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Make POST request.
 
         Args:
@@ -144,9 +136,9 @@ class APIClient:
     def put(
         self,
         endpoint: str,
-        json: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Make PUT request.
 
         Args:

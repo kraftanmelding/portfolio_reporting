@@ -1,7 +1,8 @@
 """Sync coordinator for data synchronization."""
+
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .api.client import APIClient
 from .database.handler import DatabaseHandler
@@ -11,14 +12,13 @@ from .fetchers.om_data import OMDataFetcher
 from .fetchers.power_plants import PowerPlantsFetcher
 from .fetchers.production import ProductionFetcher
 
-
 logger = logging.getLogger(__name__)
 
 
 class SyncCoordinator:
     """Coordinates data synchronization between API and database."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """Initialize sync coordinator.
 
         Args:
@@ -40,7 +40,7 @@ class SyncCoordinator:
         self.market_prices_fetcher = MarketPricesFetcher(self.api_client)
         self.om_fetcher = OMDataFetcher(self.api_client)
 
-    def sync_all(self, mode: str = "full") -> Dict[str, int]:
+    def sync_all(self, mode: str = "full") -> dict[str, int]:
         """Sync all data from API to database.
 
         Args:
@@ -78,15 +78,11 @@ class SyncCoordinator:
 
             # Sync market prices
             if self.config.get("data", {}).get("fetch_market_prices", True):
-                stats["market_prices"] = self._sync_market_prices(
-                    mode, start_date, end_date
-                )
+                stats["market_prices"] = self._sync_market_prices(mode, start_date, end_date)
 
             # Sync downtime events
             if self.config.get("data", {}).get("fetch_downtime_events", True):
-                stats["downtime_events"] = self._sync_downtime_events(
-                    mode, start_date, end_date
-                )
+                stats["downtime_events"] = self._sync_downtime_events(mode, start_date, end_date)
 
             # Sync work items (requires power plants list)
             if self.config.get("data", {}).get("fetch_work_items", True):
@@ -123,9 +119,7 @@ class SyncCoordinator:
             return count
 
         except Exception as e:
-            self.db_handler.update_sync_metadata(
-                "companies", success=False, error_message=str(e)
-            )
+            self.db_handler.update_sync_metadata("companies", success=False, error_message=str(e))
             raise
 
     def _sync_power_plants(self, mode: str) -> tuple:
@@ -154,9 +148,9 @@ class SyncCoordinator:
     def _sync_production(
         self,
         mode: str,
-        power_plants: List[Dict[str, Any]],
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
+        power_plants: list[dict[str, Any]],
+        from_date: str | None = None,
+        to_date: str | None = None,
     ) -> int:
         """Sync production data.
 
@@ -207,23 +201,23 @@ class SyncCoordinator:
                     plant_uuid = record["power_plant"].get("uuid")
                     record["power_plant_id"] = uuid_to_id.get(plant_uuid)
 
-            logger.debug(f"After mapping, sample record: {production_data[0] if production_data else 'No data'}")
+            logger.debug(
+                f"After mapping, sample record: {production_data[0] if production_data else 'No data'}"
+            )
 
             count = self.db_handler.upsert_production_days(production_data)
             self.db_handler.update_sync_metadata("production", success=True)
             return count
 
         except Exception as e:
-            self.db_handler.update_sync_metadata(
-                "production", success=False, error_message=str(e)
-            )
+            self.db_handler.update_sync_metadata("production", success=False, error_message=str(e))
             raise
 
     def _sync_market_prices(
         self,
         mode: str,
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
     ) -> int:
         """Sync market prices data.
 
@@ -248,9 +242,7 @@ class SyncCoordinator:
             if not to_date:
                 to_date = datetime.utcnow().strftime("%Y-%m-%d")
 
-            prices = self.market_prices_fetcher.fetch(
-                from_date=from_date, to_date=to_date
-            )
+            prices = self.market_prices_fetcher.fetch(from_date=from_date, to_date=to_date)
             count = self.db_handler.upsert_market_prices(prices)
             self.db_handler.update_sync_metadata("market_prices", success=True)
             return count
@@ -264,8 +256,8 @@ class SyncCoordinator:
     def _sync_downtime_events(
         self,
         mode: str,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> int:
         """Sync downtime events data.
 
@@ -286,9 +278,7 @@ class SyncCoordinator:
                 if last_sync:
                     start_date = last_sync.split("T")[0]
 
-            events = self.om_fetcher.fetch_downtime_events(
-                start_date=start_date, end_date=end_date
-            )
+            events = self.om_fetcher.fetch_downtime_events(start_date=start_date, end_date=end_date)
 
             # Map UUID to ID for database insertion
             uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
@@ -309,9 +299,9 @@ class SyncCoordinator:
     def _sync_work_items(
         self,
         mode: str,
-        power_plants: List[Dict[str, Any]],
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        power_plants: list[dict[str, Any]],
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> int:
         """Sync work items data.
 
@@ -354,7 +344,5 @@ class SyncCoordinator:
             return count
 
         except Exception as e:
-            self.db_handler.update_sync_metadata(
-                "work_items", success=False, error_message=str(e)
-            )
+            self.db_handler.update_sync_metadata("work_items", success=False, error_message=str(e))
             raise

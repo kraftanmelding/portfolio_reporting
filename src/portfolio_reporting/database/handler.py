@@ -1,12 +1,12 @@
 """Database handler for SQLite operations."""
+
 import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .schema import SCHEMA_SQL
-
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class DatabaseHandler:
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn: Optional[sqlite3.Connection] = None
+        self.conn: sqlite3.Connection | None = None
 
     def connect(self):
         """Establish database connection."""
@@ -48,7 +48,7 @@ class DatabaseHandler:
         self.conn.commit()
         logger.info("Database schema initialized successfully")
 
-    def upsert_companies(self, companies: List[Dict[str, Any]]) -> int:
+    def upsert_companies(self, companies: list[dict[str, Any]]) -> int:
         """Insert or update companies.
 
         Args:
@@ -87,7 +87,7 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} companies")
         return count
 
-    def upsert_power_plants(self, power_plants: List[Dict[str, Any]]) -> int:
+    def upsert_power_plants(self, power_plants: list[dict[str, Any]]) -> int:
         """Insert or update power plants.
 
         Args:
@@ -142,7 +142,7 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} power plants")
         return count
 
-    def upsert_production_days(self, production_data: List[Dict[str, Any]]) -> int:
+    def upsert_production_days(self, production_data: list[dict[str, Any]]) -> int:
         """Insert or update production days.
 
         Args:
@@ -198,7 +198,7 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} production day records")
         return count
 
-    def upsert_market_prices(self, prices: List[Dict[str, Any]]) -> int:
+    def upsert_market_prices(self, prices: list[dict[str, Any]]) -> int:
         """Insert or update market prices.
 
         Args:
@@ -241,7 +241,7 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} market price records")
         return count
 
-    def upsert_downtime_events(self, events: List[Dict[str, Any]]) -> int:
+    def upsert_downtime_events(self, events: list[dict[str, Any]]) -> int:
         """Insert or update downtime events.
 
         Args:
@@ -292,7 +292,7 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} downtime events")
         return count
 
-    def upsert_work_items(self, items: List[Dict[str, Any]]) -> int:
+    def upsert_work_items(self, items: list[dict[str, Any]]) -> int:
         """Insert or update work items.
 
         Args:
@@ -350,7 +350,7 @@ class DatabaseHandler:
         self,
         entity_type: str,
         success: bool = True,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ):
         """Update sync metadata for incremental updates.
 
@@ -385,7 +385,7 @@ class DatabaseHandler:
         )
         self.conn.commit()
 
-    def get_last_sync_time(self, entity_type: str) -> Optional[str]:
+    def get_last_sync_time(self, entity_type: str) -> str | None:
         """Get last successful sync time for entity type.
 
         Args:
@@ -409,7 +409,7 @@ class DatabaseHandler:
         row = cursor.fetchone()
         return row["last_sync_at"] if row else None
 
-    def get_power_plant_uuid_to_id_mapping(self) -> Dict[str, int]:
+    def get_power_plant_uuid_to_id_mapping(self) -> dict[str, int]:
         """Get mapping of power plant UUIDs to database IDs.
 
         Returns:

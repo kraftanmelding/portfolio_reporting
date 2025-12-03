@@ -1,9 +1,9 @@
 """Base fetcher class for data retrieval."""
+
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..api.client import APIClient
-
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class BaseFetcher:
         """
         self.api_client = api_client
 
-    def fetch(self, **kwargs) -> List[Dict[str, Any]]:
+    def fetch(self, **kwargs) -> list[dict[str, Any]]:
         """Fetch data from API.
 
         Args:

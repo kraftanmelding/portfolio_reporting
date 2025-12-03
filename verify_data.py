@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Simple script to verify synced data in the database."""
+
 import sqlite3
 import sys
 from datetime import datetime
+
 
 def verify_data(db_path: str = "data/portfolio_report.db"):
     """Verify data in the database."""
@@ -37,10 +39,10 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         """)
         prod = cursor.fetchone()
         print(f"⚡ Production days: {prod['count']:,}")
-        if prod['count'] > 0:
+        if prod["count"] > 0:
             print(f"   └─ Date range: {prod['min_date']} to {prod['max_date']}")
             print(f"   └─ Currencies: {prod['currencies']}")
-            if prod['total_volume']:
+            if prod["total_volume"]:
                 print(f"   └─ Total volume: {prod['total_volume']:,.0f} MWh")
 
         # Market prices
@@ -53,7 +55,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         """)
         prices = cursor.fetchone()
         print(f"💰 Market prices: {prices['count']:,}")
-        if prices['count'] > 0:
+        if prices["count"] > 0:
             print(f"   └─ Time range: {prices['min_time']} to {prices['max_time']}")
             print(f"   └─ Price areas: {prices['areas']}")
 
@@ -66,7 +68,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         """)
         downtime = cursor.fetchone()
         print(f"🔧 Downtime events: {downtime['count']}")
-        if downtime['count'] > 0 and downtime['min_time']:
+        if downtime["count"] > 0 and downtime["min_time"]:
             print(f"   └─ Time range: {downtime['min_time']} to {downtime['max_time']}")
 
         # Work items
@@ -79,7 +81,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         """)
         work_items = cursor.fetchone()
         print(f"📝 Work items: {work_items['count']}")
-        if work_items['count'] > 0:
+        if work_items["count"] > 0:
             print(f"   └─ Created range: {work_items['min_time']} to {work_items['max_time']}")
             print(f"   └─ Statuses: {work_items['statuses']}")
 
@@ -107,6 +109,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     db_path = sys.argv[1] if len(sys.argv) > 1 else "data/portfolio_report.db"

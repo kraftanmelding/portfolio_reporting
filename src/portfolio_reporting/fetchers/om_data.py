@@ -1,9 +1,9 @@
 """Fetcher for O&M (Operations & Maintenance) data."""
+
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import BaseFetcher
-
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +13,10 @@ class OMDataFetcher(BaseFetcher):
 
     def fetch_downtime_events(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        power_plant_uuid: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: str | None = None,
+        end_date: str | None = None,
+        power_plant_uuid: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch downtime events.
 
         Args:
@@ -57,10 +57,10 @@ class OMDataFetcher(BaseFetcher):
 
     def fetch_scheduled_downtime_events(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        power_plant_uuid: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: str | None = None,
+        end_date: str | None = None,
+        power_plant_uuid: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch scheduled downtime events.
 
         Args:
@@ -82,9 +82,7 @@ class OMDataFetcher(BaseFetcher):
             if power_plant_uuid:
                 params["power_plant_uuid"] = power_plant_uuid
 
-            response = self.api_client.get(
-                "/api/v2/scheduled_downtime_events", params=params
-            )
+            response = self.api_client.get("/api/v2/scheduled_downtime_events", params=params)
 
             # The response might be a list or a dict with a 'data' key
             if isinstance(response, list):
@@ -104,11 +102,11 @@ class OMDataFetcher(BaseFetcher):
     def fetch_work_items(
         self,
         power_plant_uuid: str,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        status: Optional[str] = None,
-        limit: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: str | None = None,
+        end_date: str | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch work items for a specific power plant.
 
         Args:
@@ -153,12 +151,12 @@ class OMDataFetcher(BaseFetcher):
 
     def fetch_all_work_items(
         self,
-        power_plants: List[Dict[str, Any]],
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        status: Optional[str] = None,
-        limit: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        power_plants: list[dict[str, Any]],
+        start_date: str | None = None,
+        end_date: str | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch work items for all power plants.
 
         Args:

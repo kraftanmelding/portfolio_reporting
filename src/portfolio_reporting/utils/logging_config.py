@@ -1,11 +1,12 @@
 """Logging configuration utilities."""
+
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
-def setup_logging(config: Dict[str, Any]) -> None:
+def setup_logging(config: dict[str, Any]) -> None:
     """Setup logging configuration.
 
     Args:

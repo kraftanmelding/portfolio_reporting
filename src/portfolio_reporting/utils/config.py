@@ -1,15 +1,15 @@
 """Configuration management utilities."""
+
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
-
 
 logger = logging.getLogger(__name__)
 
 
-def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
+def load_config(config_path: str = "config.yaml") -> dict[str, Any]:
     """Load configuration from YAML file.
 
     Args:
@@ -32,14 +32,14 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
 
     logger.info(f"Loading configuration from {config_path}")
 
-    with open(config_file, "r") as f:
+    with open(config_file) as f:
         config = yaml.safe_load(f)
 
     logger.info("Configuration loaded successfully")
     return config
 
 
-def validate_config(config: Dict[str, Any]) -> None:
+def validate_config(config: dict[str, Any]) -> None:
     """Validate required configuration fields.
 
     Args:
@@ -59,14 +59,10 @@ def validate_config(config: Dict[str, Any]) -> None:
 
         for field in fields:
             if field not in config[section]:
-                raise ValueError(
-                    f"Missing required config field: {section}.{field}"
-                )
+                raise ValueError(f"Missing required config field: {section}.{field}")
 
     # Validate API key is not the default placeholder
     if config["api"]["api_key"] == "your-api-key-here":
-        raise ValueError(
-            "Please update config.yaml with your actual API key"
-        )
+        raise ValueError("Please update config.yaml with your actual API key")
 
     logger.info("Configuration validated successfully")

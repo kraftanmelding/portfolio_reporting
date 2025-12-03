@@ -1,9 +1,9 @@
 """Fetcher for power plant data."""
+
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from .base import BaseFetcher
-
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class PowerPlantsFetcher(BaseFetcher):
     """Fetcher for power plant data from Kaia Solutions Portal API."""
 
-    def fetch(self) -> List[Dict[str, Any]]:
+    def fetch(self) -> list[dict[str, Any]]:
         """Fetch all power plants.
 
         Returns:
@@ -38,7 +38,7 @@ class PowerPlantsFetcher(BaseFetcher):
             logger.error(f"Error fetching power plants: {e}")
             raise
 
-    def fetch_time_series(self, uuid: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def fetch_time_series(self, uuid: str, params: dict[str, Any]) -> dict[str, Any]:
         """Fetch time series data for a specific power plant.
 
         Args:

@@ -1,9 +1,9 @@
 """Fetcher for company data."""
+
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from .base import BaseFetcher
-
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class CompaniesFetcher(BaseFetcher):
     """Fetcher for company data from Kaia Solutions Portal API."""
 
-    def fetch(self) -> List[Dict[str, Any]]:
+    def fetch(self) -> list[dict[str, Any]]:
         """Fetch all companies.
 
         Returns:

@@ -1,9 +1,9 @@
 """Fetcher for market price data."""
+
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import BaseFetcher
-
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +13,10 @@ class MarketPricesFetcher(BaseFetcher):
 
     def fetch(
         self,
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
-        price_areas: Optional[List[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        from_date: str | None = None,
+        to_date: str | None = None,
+        price_areas: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch market prices.
 
         Args:

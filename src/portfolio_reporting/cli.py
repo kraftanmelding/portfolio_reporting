@@ -1,13 +1,12 @@
 """Command-line interface for portfolio reporting."""
+
 import argparse
 import logging
 import sys
-from pathlib import Path
 
 from .sync import SyncCoordinator
 from .utils.config import load_config, validate_config
 from .utils.logging_config import setup_logging
-
 
 logger = logging.getLogger(__name__)
 

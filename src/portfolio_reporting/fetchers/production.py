@@ -1,9 +1,9 @@
 """Fetcher for production data."""
+
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import BaseFetcher
-
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +14,10 @@ class ProductionFetcher(BaseFetcher):
     def fetch_production_days(
         self,
         power_plant_uuid: str,
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
-        currency: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        from_date: str | None = None,
+        to_date: str | None = None,
+        currency: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch daily production data for a specific power plant.
 
         Args:
@@ -29,7 +29,9 @@ class ProductionFetcher(BaseFetcher):
         Returns:
             List of production day dictionaries
         """
-        logger.debug(f"Fetching production days for power plant {power_plant_uuid} (currency: {currency})")
+        logger.debug(
+            f"Fetching production days for power plant {power_plant_uuid} (currency: {currency})"
+        )
 
         try:
             params = {"power_plant_uuid": power_plant_uuid}
@@ -54,7 +56,9 @@ class ProductionFetcher(BaseFetcher):
             for record in production_data:
                 record["currency"] = currency if currency else "NOK"
 
-            logger.debug(f"Fetched {len(production_data)} production day records for {power_plant_uuid} (currency: {currency})")
+            logger.debug(
+                f"Fetched {len(production_data)} production day records for {power_plant_uuid} (currency: {currency})"
+            )
             return production_data
 
         except Exception as e:
@@ -63,11 +67,11 @@ class ProductionFetcher(BaseFetcher):
 
     def fetch_all_production_days(
         self,
-        power_plants: List[Dict[str, Any]],
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
-        currencies: Optional[List[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        power_plants: list[dict[str, Any]],
+        from_date: str | None = None,
+        to_date: str | None = None,
+        currencies: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch production data for all power plants in multiple currencies.
 
         Args:
@@ -80,9 +84,11 @@ class ProductionFetcher(BaseFetcher):
             List of all production day dictionaries
         """
         if currencies is None:
-            currencies = ['NOK', 'EUR']
+            currencies = ["NOK", "EUR"]
 
-        logger.info(f"Fetching production days for {len(power_plants)} power plants in {len(currencies)} currencies")
+        logger.info(
+            f"Fetching production days for {len(power_plants)} power plants in {len(currencies)} currencies"
+        )
 
         all_production_data = []
 
