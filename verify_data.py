@@ -31,15 +31,17 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             SELECT COUNT(*) as count,
                    MIN(date) as min_date,
                    MAX(date) as max_date,
-                   SUM(production_kwh) as total_kwh
+                   SUM(volume) as total_volume,
+                   COUNT(DISTINCT currency) as currencies
             FROM production_days
         """)
         prod = cursor.fetchone()
         print(f"⚡ Production days: {prod['count']:,}")
         if prod['count'] > 0:
             print(f"   └─ Date range: {prod['min_date']} to {prod['max_date']}")
-            if prod['total_kwh']:
-                print(f"   └─ Total production: {prod['total_kwh']:,.0f} kWh")
+            print(f"   └─ Currencies: {prod['currencies']}")
+            if prod['total_volume']:
+                print(f"   └─ Total volume: {prod['total_volume']:,.0f} MWh")
 
         # Market prices
         cursor.execute("""

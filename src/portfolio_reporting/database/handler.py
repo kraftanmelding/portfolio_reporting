@@ -161,20 +161,33 @@ class DatabaseHandler:
             cursor.execute(
                 """
                 INSERT INTO production_days (
-                    power_plant_id, date, production_kwh, hours,
+                    power_plant_id, date, volume, revenue, currency,
+                    forecasted_volume, cap_theoretical_volume,
+                    full_load_count, no_load_count, operational_count,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(power_plant_id, date) DO UPDATE SET
-                    production_kwh = excluded.production_kwh,
-                    hours = excluded.hours,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(power_plant_id, date, currency) DO UPDATE SET
+                    volume = excluded.volume,
+                    revenue = excluded.revenue,
+                    forecasted_volume = excluded.forecasted_volume,
+                    cap_theoretical_volume = excluded.cap_theoretical_volume,
+                    full_load_count = excluded.full_load_count,
+                    no_load_count = excluded.no_load_count,
+                    operational_count = excluded.operational_count,
                     updated_at = excluded.updated_at
                 """,
                 (
                     record.get("power_plant_id"),
                     record.get("date"),
-                    record.get("production_kwh"),
-                    record.get("hours"),
+                    record.get("volume"),
+                    record.get("revenue"),
+                    record.get("currency", "NOK"),
+                    record.get("forecasted_volume"),
+                    record.get("cap_theoretical_volume"),
+                    record.get("full_load_count"),
+                    record.get("no_load_count"),
+                    record.get("operational_count"),
                     datetime.utcnow().isoformat(),
                     datetime.utcnow().isoformat(),
                 ),

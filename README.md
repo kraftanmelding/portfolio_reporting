@@ -302,3 +302,29 @@ For technical support or feature requests, contact the development team.
 
 **Version:** 1.0.0
 **Last Updated:** December 2025
+
+## Multi-Currency Support
+
+Production data is automatically fetched in both **NOK and EUR** currencies. The database stores separate records for each currency with the same production volume but different revenue calculations.
+
+### Production Data Fields
+
+The `production_days` table includes:
+- `volume` - Production volume in MWh
+- `revenue` - Revenue in the specified currency
+- `currency` - Currency code (NOK or EUR)
+- `forecasted_volume` - Forecasted production
+- `cap_theoretical_volume` - Theoretical capacity production
+- `full_load_count` - Hours at full load
+- `no_load_count` - Hours at no load
+- `operational_count` - Hours operational
+
+### In PowerBI
+
+You can filter by currency or compare revenues across currencies:
+
+```DAX
+NOK Revenue = CALCULATE(SUM(production_days[revenue]), production_days[currency] = "NOK")
+EUR Revenue = CALCULATE(SUM(production_days[revenue]), production_days[currency] = "EUR")
+```
+

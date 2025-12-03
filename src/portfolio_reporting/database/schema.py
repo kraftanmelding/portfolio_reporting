@@ -33,11 +33,17 @@ CREATE TABLE IF NOT EXISTS production_days (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     power_plant_id INTEGER NOT NULL,
     date DATE NOT NULL,
-    production_kwh REAL,
-    hours INTEGER,
+    volume REAL,
+    revenue REAL,
+    currency TEXT DEFAULT 'NOK',
+    forecasted_volume REAL,
+    cap_theoretical_volume REAL,
+    full_load_count INTEGER,
+    no_load_count INTEGER,
+    operational_count INTEGER,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    UNIQUE(power_plant_id, date),
+    UNIQUE(power_plant_id, date, currency),
     FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
 );
 
