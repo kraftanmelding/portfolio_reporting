@@ -6,6 +6,7 @@ from typing import Any
 
 from .api.client import APIClient
 from .database.handler import DatabaseHandler
+from .fetchers.budgets import BudgetsFetcher
 from .fetchers.companies import CompaniesFetcher
 from .fetchers.market_prices import MarketPricesFetcher
 from .fetchers.om_data import OMDataFetcher
@@ -39,6 +40,7 @@ class SyncCoordinator:
         self.production_fetcher = ProductionFetcher(self.api_client)
         self.market_prices_fetcher = MarketPricesFetcher(self.api_client)
         self.om_fetcher = OMDataFetcher(self.api_client)
+        self.budgets_fetcher = BudgetsFetcher(self.api_client)
 
     def sync_all(self, mode: str = "full") -> dict[str, int]:
         """Sync all data from API to database.
@@ -87,6 +89,12 @@ class SyncCoordinator:
             # Sync work items (requires power plants list)
             if self.config.get("data", {}).get("fetch_work_items", True):
                 stats["work_items"] = self._sync_work_items(
+                    mode, power_plants, start_date, end_date
+                )
+
+            # Sync budgets (requires power plants list)
+            if self.config.get("data", {}).get("fetch_budgets", True):
+                stats["budgets"] = self._sync_budgets(
                     mode, power_plants, start_date, end_date
                 )
 
@@ -345,4 +353,55 @@ class SyncCoordinator:
 
         except Exception as e:
             self.db_handler.update_sync_metadata("work_items", success=False, error_message=str(e))
+            raise
+
+    def _sync_budgets(
+        self,
+        mode: str,
+        power_plants: list[dict[str, Any]],
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> int:
+        """Sync budget data.
+
+        Args:
+            mode: Sync mode
+            power_plants: List of power plant dictionaries
+            start_date: Start date filter
+            end_date: End date filter
+
+        Returns:
+            Number of records synced
+        """
+        logger.info("Syncing budgets")
+
+        if not power_plants:
+            logger.warning("No power plants available, skipping budgets sync")
+            return 0
+
+        try:
+            # For incremental mode, use last sync time as start_date
+            if mode == "incremental" and not start_date:
+                last_sync = self.db_handler.get_last_sync_time("budgets")
+                if last_sync:
+                    start_date = last_sync.split("T")[0]
+
+            budgets = self.budgets_fetcher.fetch_all_budgets(
+                power_plants=power_plants,
+                from_date=start_date,
+                to_date=end_date,
+            )
+
+            # Map UUID to ID for database insertion
+            uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
+            for budget in budgets:
+                if "power_plant_uuid" in budget:
+                    budget["power_plant_id"] = uuid_to_id.get(budget["power_plant_uuid"])
+
+            count = self.db_handler.upsert_budgets(budgets)
+            self.db_handler.update_sync_metadata("budgets", success=True)
+            return count
+
+        except Exception as e:
+            self.db_handler.update_sync_metadata("budgets", success=False, error_message=str(e))
             raise

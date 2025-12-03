@@ -85,6 +85,24 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             print(f"   └─ Created range: {work_items['min_time']} to {work_items['max_time']}")
             print(f"   └─ Statuses: {work_items['statuses']}")
 
+        # Budgets
+        cursor.execute("""
+            SELECT COUNT(*) as count,
+                   MIN(month) as min_month,
+                   MAX(month) as max_month,
+                   SUM(volume) as total_volume,
+                   SUM(revenue) as total_revenue
+            FROM budgets
+        """)
+        budgets = cursor.fetchone()
+        print(f"📊 Budgets: {budgets['count']}")
+        if budgets["count"] > 0:
+            print(f"   └─ Month range: {budgets['min_month']} to {budgets['max_month']}")
+            if budgets["total_volume"]:
+                print(f"   └─ Total budgeted volume: {budgets['total_volume']:,.0f} MWh")
+            if budgets["total_revenue"]:
+                print(f"   └─ Total budgeted revenue: {budgets['total_revenue']:,.0f}")
+
         # Sync metadata
         print()
         print("─" * 80)

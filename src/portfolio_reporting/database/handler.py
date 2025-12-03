@@ -346,6 +346,55 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} work items")
         return count
 
+    def upsert_budgets(self, budgets: list[dict[str, Any]]) -> int:
+        """Insert or update budgets.
+
+        Args:
+            budgets: List of budget dictionaries
+
+        Returns:
+            Number of records processed
+        """
+        if not self.conn:
+            raise RuntimeError("Database not connected")
+
+        cursor = self.conn.cursor()
+        count = 0
+
+        for budget in budgets:
+            cursor.execute(
+                """
+                INSERT INTO budgets (
+                    id, power_plant_id, month, volume, revenue,
+                    avg_daily_volume, avg_daily_revenue,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(power_plant_id, month) DO UPDATE SET
+                    volume = excluded.volume,
+                    revenue = excluded.revenue,
+                    avg_daily_volume = excluded.avg_daily_volume,
+                    avg_daily_revenue = excluded.avg_daily_revenue,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    budget.get("id"),
+                    budget.get("power_plant_id"),
+                    budget.get("month"),
+                    budget.get("volume"),
+                    budget.get("revenue"),
+                    budget.get("avg_daily_volume"),
+                    budget.get("avg_daily_revenue"),
+                    datetime.utcnow().isoformat(),
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            count += 1
+
+        self.conn.commit()
+        logger.info(f"Upserted {count} budget records")
+        return count
+
     def update_sync_metadata(
         self,
         entity_type: str,

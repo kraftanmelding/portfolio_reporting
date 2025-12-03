@@ -104,6 +104,21 @@ CREATE TABLE IF NOT EXISTS work_items (
     FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
 );
 
+-- Budgets table (monthly production budgets)
+CREATE TABLE IF NOT EXISTS budgets (
+    id INTEGER PRIMARY KEY,
+    power_plant_id INTEGER NOT NULL,
+    month DATE NOT NULL,
+    volume REAL,
+    revenue REAL,
+    avg_daily_volume REAL,
+    avg_daily_revenue REAL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    UNIQUE(power_plant_id, month),
+    FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
+);
+
 -- Sensors table (optional, for detailed monitoring)
 CREATE TABLE IF NOT EXISTS sensors (
     id INTEGER PRIMARY KEY,
@@ -165,6 +180,9 @@ CREATE INDEX IF NOT EXISTS idx_work_items_power_plant
 
 CREATE INDEX IF NOT EXISTS idx_work_items_status
     ON work_items(status);
+
+CREATE INDEX IF NOT EXISTS idx_budgets_power_plant
+    ON budgets(power_plant_id, month);
 
 CREATE INDEX IF NOT EXISTS idx_sensors_power_plant
     ON sensors(power_plant_id);
