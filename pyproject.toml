@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "portfolio_reporting"
+version = "0.1.0"
+description = "Python library for preparing PowerBI report data from Captiva Portal API"
+authors = ["Captiva <noreply@captiva.com>"]
+readme = "README.md"
+packages = [{include = "portfolio_reporting", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.31.0"
+pyyaml = "^6.0.1"
+python-dotenv = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+black = "^23.12.0"
+ruff = "^0.1.8"
+
+[tool.poetry.scripts]
+portfolio-reporting = "portfolio_reporting.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

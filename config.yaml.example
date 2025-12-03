@@ -1,0 +1,30 @@
+# Captiva Portal API Configuration
+# Copy this file to config.yaml and fill in your credentials
+
+api:
+  base_url: "http://localhost:3000"       # Change to production URL when ready
+  api_key: "your-api-key-here"            # Get this from Captiva Portal admin
+  timeout: 30                             # Request timeout in seconds
+  retry_attempts: 3                       # Number of retry attempts for failed requests
+
+database:
+  path: "data/portfolio_report.db"        # Path to SQLite database file
+
+logging:
+  level: "INFO"                           # Options: DEBUG, INFO, WARNING, ERROR
+  file: "logs/portfolio_reporting.log"
+  console: true                           # Also log to console
+
+data:
+  # Date range for historical data (leave empty for all data)
+  start_date: null                        # Format: YYYY-MM-DD
+  end_date: null                          # Format: YYYY-MM-DD
+
+  # Which data to fetch (set to false to skip)
+  fetch_power_plants: true
+  fetch_companies: true
+  fetch_production: true
+  fetch_market_prices: true
+  fetch_downtime_events: true
+  fetch_work_items: true
+  fetch_sensors: false                    # Set true if you need sensor data
