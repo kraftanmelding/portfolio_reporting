@@ -74,6 +74,36 @@ CREATE TABLE IF NOT EXISTS downtime_events (
     FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
 );
 
+-- Downtime days table (daily aggregated downtime)
+CREATE TABLE IF NOT EXISTS downtime_days (
+    id INTEGER PRIMARY KEY,
+    power_plant_id INTEGER NOT NULL,
+    date DATE NOT NULL,
+    reason TEXT,
+    volume REAL,
+    cost REAL,
+    hour_count INTEGER,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    UNIQUE(power_plant_id, date, reason),
+    FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
+);
+
+-- Downtime periods table (hourly downtime periods)
+CREATE TABLE IF NOT EXISTS downtime_periods (
+    id INTEGER PRIMARY KEY,
+    power_plant_id INTEGER NOT NULL,
+    downtime_event_id INTEGER,
+    timestamp TIMESTAMP NOT NULL,
+    reason TEXT,
+    volume REAL,
+    cost REAL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    UNIQUE(power_plant_id, timestamp),
+    FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
+);
+
 -- Scheduled downtime events table
 CREATE TABLE IF NOT EXISTS scheduled_downtime_events (
     id INTEGER PRIMARY KEY,
@@ -174,6 +204,12 @@ CREATE INDEX IF NOT EXISTS idx_market_prices_area_time
 
 CREATE INDEX IF NOT EXISTS idx_downtime_events_power_plant
     ON downtime_events(power_plant_id, start_time);
+
+CREATE INDEX IF NOT EXISTS idx_downtime_days_power_plant
+    ON downtime_days(power_plant_id, date);
+
+CREATE INDEX IF NOT EXISTS idx_downtime_periods_power_plant
+    ON downtime_periods(power_plant_id, timestamp);
 
 CREATE INDEX IF NOT EXISTS idx_work_items_power_plant
     ON work_items(power_plant_id);

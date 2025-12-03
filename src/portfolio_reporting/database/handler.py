@@ -325,6 +325,101 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} downtime events")
         return count
 
+    def upsert_downtime_days(self, days: list[dict[str, Any]]) -> int:
+        """Insert or update downtime days.
+
+        Args:
+            days: List of downtime day dictionaries
+
+        Returns:
+            Number of records processed
+        """
+        if not self.conn:
+            raise RuntimeError("Database not connected")
+
+        cursor = self.conn.cursor()
+        count = 0
+
+        for day in days:
+            cursor.execute(
+                """
+                INSERT INTO downtime_days (
+                    id, power_plant_id, date, reason, volume, cost, hour_count,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(power_plant_id, date, reason) DO UPDATE SET
+                    volume = excluded.volume,
+                    cost = excluded.cost,
+                    hour_count = excluded.hour_count,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    day.get("id"),
+                    day.get("power_plant_id"),
+                    day.get("date"),
+                    day.get("reason"),
+                    day.get("volume"),
+                    day.get("cost"),
+                    day.get("hour_count"),
+                    datetime.utcnow().isoformat(),
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            count += 1
+
+        self.conn.commit()
+        logger.info(f"Upserted {count} downtime day records")
+        return count
+
+    def upsert_downtime_periods(self, periods: list[dict[str, Any]]) -> int:
+        """Insert or update downtime periods.
+
+        Args:
+            periods: List of downtime period dictionaries
+
+        Returns:
+            Number of records processed
+        """
+        if not self.conn:
+            raise RuntimeError("Database not connected")
+
+        cursor = self.conn.cursor()
+        count = 0
+
+        for period in periods:
+            cursor.execute(
+                """
+                INSERT INTO downtime_periods (
+                    id, power_plant_id, downtime_event_id, timestamp, reason,
+                    volume, cost, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(power_plant_id, timestamp) DO UPDATE SET
+                    downtime_event_id = excluded.downtime_event_id,
+                    reason = excluded.reason,
+                    volume = excluded.volume,
+                    cost = excluded.cost,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    period.get("id"),
+                    period.get("power_plant_id"),
+                    period.get("downtime_event_id"),
+                    period.get("timestamp"),
+                    period.get("reason"),
+                    period.get("volume"),
+                    period.get("cost"),
+                    datetime.utcnow().isoformat(),
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            count += 1
+
+        self.conn.commit()
+        logger.info(f"Upserted {count} downtime period records")
+        return count
+
     def upsert_work_items(self, items: list[dict[str, Any]]) -> int:
         """Insert or update work items.
 

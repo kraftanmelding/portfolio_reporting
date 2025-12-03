@@ -115,6 +115,203 @@ class OMDataFetcher(BaseFetcher):
             logger.error(f"Error fetching scheduled downtime events: {e}")
             raise
 
+    def fetch_downtime_days(
+        self,
+        power_plant_uuid: str,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        reason: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch downtime days (daily aggregated) for a specific power plant.
+
+        Args:
+            power_plant_uuid: Power plant UUID (required)
+            from_date: Start date (YYYY-MM-DD format)
+            to_date: End date (YYYY-MM-DD format)
+            reason: Filter by reason
+
+        Returns:
+            List of downtime day dictionaries
+        """
+        logger.debug(f"Fetching downtime days for power plant {power_plant_uuid}")
+
+        try:
+            params = {"power_plant_uuid": power_plant_uuid}
+            if from_date:
+                params["from_date"] = from_date
+            if to_date:
+                params["to_date"] = to_date
+            if reason:
+                params["reason"] = reason
+
+            response = self.api_client.get("/api/v2/downtime_days", params=params)
+
+            # The response might be a list or a dict with a 'data' key
+            if isinstance(response, list):
+                days = response
+            elif isinstance(response, dict) and "data" in response:
+                days = response["data"]
+            else:
+                days = [response] if response else []
+
+            logger.debug(f"Fetched {len(days)} downtime days for {power_plant_uuid}")
+            return days
+
+        except Exception as e:
+            logger.error(f"Error fetching downtime days for {power_plant_uuid}: {e}")
+            raise
+
+    def fetch_all_downtime_days(
+        self,
+        power_plants: list[dict[str, Any]],
+        from_date: str | None = None,
+        to_date: str | None = None,
+        reason: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch downtime days for all power plants.
+
+        Args:
+            power_plants: List of power plant dictionaries with 'uuid' field
+            from_date: Start date (YYYY-MM-DD format)
+            to_date: End date (YYYY-MM-DD format)
+            reason: Filter by reason
+
+        Returns:
+            List of all downtime day dictionaries
+        """
+        logger.info(f"Fetching downtime days for {len(power_plants)} power plants")
+
+        # Split date range into yearly chunks to avoid API timeouts
+        date_chunks = split_date_range_by_year(from_date, to_date)
+        logger.info(f"Split date range into {len(date_chunks)} yearly chunks")
+
+        all_days = []
+
+        for plant in power_plants:
+            uuid = plant.get("uuid")
+            if not uuid:
+                logger.warning(f"Power plant missing UUID: {plant.get('name', 'Unknown')}")
+                continue
+
+            # Fetch downtime days for each yearly chunk
+            for chunk_start, chunk_end in date_chunks:
+                try:
+                    logger.debug(
+                        f"Fetching downtime days for {uuid} from {chunk_start} to {chunk_end}"
+                    )
+                    days = self.fetch_downtime_days(
+                        power_plant_uuid=uuid,
+                        from_date=chunk_start,
+                        to_date=chunk_end,
+                        reason=reason,
+                    )
+                    all_days.extend(days)
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch downtime days for {uuid} ({chunk_start} to {chunk_end}): {e}"
+                    )
+                    # Continue with other chunks/plants even if one fails
+                    continue
+
+        logger.info(f"Fetched total of {len(all_days)} downtime days")
+        return all_days
+
+    def fetch_downtime_periods(
+        self,
+        power_plant_uuid: str,
+        timestamp_from: str | None = None,
+        timestamp_to: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch downtime periods (hourly) for a specific power plant.
+
+        Args:
+            power_plant_uuid: Power plant UUID (required)
+            timestamp_from: Start timestamp (ISO8601 format)
+            timestamp_to: End timestamp (ISO8601 format)
+
+        Returns:
+            List of downtime period dictionaries
+        """
+        logger.debug(f"Fetching downtime periods for power plant {power_plant_uuid}")
+
+        try:
+            params = {"power_plant_uuid": power_plant_uuid}
+            if timestamp_from:
+                params["timestamp_from"] = timestamp_from
+            if timestamp_to:
+                params["timestamp_to"] = timestamp_to
+
+            response = self.api_client.get("/api/v2/downtime_periods", params=params)
+
+            # The response might be a list or a dict with a 'data' key
+            if isinstance(response, list):
+                periods = response
+            elif isinstance(response, dict) and "data" in response:
+                periods = response["data"]
+            else:
+                periods = [response] if response else []
+
+            logger.debug(f"Fetched {len(periods)} downtime periods for {power_plant_uuid}")
+            return periods
+
+        except Exception as e:
+            logger.error(f"Error fetching downtime periods for {power_plant_uuid}: {e}")
+            raise
+
+    def fetch_all_downtime_periods(
+        self,
+        power_plants: list[dict[str, Any]],
+        timestamp_from: str | None = None,
+        timestamp_to: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch downtime periods for all power plants.
+
+        Args:
+            power_plants: List of power plant dictionaries with 'uuid' field
+            timestamp_from: Start timestamp (ISO8601 format)
+            timestamp_to: End timestamp (ISO8601 format)
+
+        Returns:
+            List of all downtime period dictionaries
+        """
+        logger.info(f"Fetching downtime periods for {len(power_plants)} power plants")
+
+        # Split date range into yearly chunks to avoid API timeouts
+        date_chunks = split_date_range_by_year(timestamp_from, timestamp_to)
+        logger.info(f"Split date range into {len(date_chunks)} yearly chunks")
+
+        all_periods = []
+
+        for plant in power_plants:
+            uuid = plant.get("uuid")
+            if not uuid:
+                logger.warning(f"Power plant missing UUID: {plant.get('name', 'Unknown')}")
+                continue
+
+            # Fetch downtime periods for each yearly chunk
+            for chunk_start, chunk_end in date_chunks:
+                try:
+                    logger.debug(
+                        f"Fetching downtime periods for {uuid} from {chunk_start} to {chunk_end}"
+                    )
+                    periods = self.fetch_downtime_periods(
+                        power_plant_uuid=uuid,
+                        timestamp_from=chunk_start,
+                        timestamp_to=chunk_end,
+                    )
+                    all_periods.extend(periods)
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch downtime periods for {uuid} ({chunk_start} to {chunk_end}): {e}"
+                    )
+                    # Continue with other chunks/plants even if one fails
+                    continue
+
+        logger.info(f"Fetched total of {len(all_periods)} downtime periods")
+        return all_periods
+
     def fetch_work_items(
         self,
         power_plant_uuid: str,

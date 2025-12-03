@@ -3,7 +3,6 @@
 
 import sqlite3
 import sys
-from datetime import datetime
 
 
 def verify_data(db_path: str = "data/portfolio_report.db"):
@@ -74,6 +73,44 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         print(f"🔧 Downtime events: {downtime['count']}")
         if downtime["count"] > 0 and downtime["min_time"]:
             print(f"   └─ Time range: {downtime['min_time']} to {downtime['max_time']}")
+
+        # Downtime days
+        cursor.execute("""
+            SELECT COUNT(*) as count,
+                   MIN(date) as min_date,
+                   MAX(date) as max_date,
+                   SUM(volume) as total_volume,
+                   SUM(cost) as total_cost
+            FROM downtime_days
+        """)
+        downtime_days = cursor.fetchone()
+        print(f"📅 Downtime days: {downtime_days['count']}")
+        if downtime_days["count"] > 0:
+            print(f"   └─ Date range: {downtime_days['min_date']} to {downtime_days['max_date']}")
+            if downtime_days["total_volume"]:
+                print(f"   └─ Total lost volume: {downtime_days['total_volume']:,.0f} MWh")
+            if downtime_days["total_cost"]:
+                print(f"   └─ Total cost: {downtime_days['total_cost']:,.0f}")
+
+        # Downtime periods
+        cursor.execute("""
+            SELECT COUNT(*) as count,
+                   MIN(timestamp) as min_time,
+                   MAX(timestamp) as max_time,
+                   SUM(volume) as total_volume,
+                   SUM(cost) as total_cost
+            FROM downtime_periods
+        """)
+        downtime_periods = cursor.fetchone()
+        print(f"⏱️  Downtime periods: {downtime_periods['count']:,}")
+        if downtime_periods["count"] > 0:
+            print(
+                f"   └─ Time range: {downtime_periods['min_time']} to {downtime_periods['max_time']}"
+            )
+            if downtime_periods["total_volume"]:
+                print(f"   └─ Total lost volume: {downtime_periods['total_volume']:,.0f} MWh")
+            if downtime_periods["total_cost"]:
+                print(f"   └─ Total cost: {downtime_periods['total_cost']:,.0f}")
 
         # Work items
         cursor.execute("""

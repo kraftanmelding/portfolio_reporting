@@ -86,6 +86,18 @@ class SyncCoordinator:
             if self.config.get("data", {}).get("fetch_downtime_events", True):
                 stats["downtime_events"] = self._sync_downtime_events(mode, start_date, end_date)
 
+            # Sync downtime days (requires power plants list)
+            if self.config.get("data", {}).get("fetch_downtime_days", True):
+                stats["downtime_days"] = self._sync_downtime_days(
+                    mode, power_plants, start_date, end_date
+                )
+
+            # Sync downtime periods (requires power plants list)
+            if self.config.get("data", {}).get("fetch_downtime_periods", True):
+                stats["downtime_periods"] = self._sync_downtime_periods(
+                    mode, power_plants, start_date, end_date
+                )
+
             # Sync work items (requires power plants list)
             if self.config.get("data", {}).get("fetch_work_items", True):
                 stats["work_items"] = self._sync_work_items(
@@ -299,6 +311,116 @@ class SyncCoordinator:
         except Exception as e:
             self.db_handler.update_sync_metadata(
                 "downtime_events", success=False, error_message=str(e)
+            )
+            raise
+
+    def _sync_downtime_days(
+        self,
+        mode: str,
+        power_plants: list[dict[str, Any]],
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> int:
+        """Sync downtime days data.
+
+        Args:
+            mode: Sync mode
+            power_plants: List of power plant dictionaries
+            start_date: Start date filter
+            end_date: End date filter
+
+        Returns:
+            Number of records synced
+        """
+        logger.info("Syncing downtime days")
+
+        if not power_plants:
+            logger.warning("No power plants available, skipping downtime days sync")
+            return 0
+
+        try:
+            # For incremental mode, use last sync time as start_date
+            if mode == "incremental" and not start_date:
+                last_sync = self.db_handler.get_last_sync_time("downtime_days")
+                if last_sync:
+                    start_date = last_sync.split("T")[0]
+
+            days = self.om_fetcher.fetch_all_downtime_days(
+                power_plants=power_plants,
+                from_date=start_date,
+                to_date=end_date,
+            )
+
+            # Map UUID to ID for database insertion
+            uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
+            for day in days:
+                if "power_plant_uuid" in day:
+                    day["power_plant_id"] = uuid_to_id.get(day["power_plant_uuid"])
+
+            count = self.db_handler.upsert_downtime_days(days)
+            self.db_handler.update_sync_metadata("downtime_days", success=True)
+            return count
+
+        except Exception as e:
+            self.db_handler.update_sync_metadata(
+                "downtime_days", success=False, error_message=str(e)
+            )
+            raise
+
+    def _sync_downtime_periods(
+        self,
+        mode: str,
+        power_plants: list[dict[str, Any]],
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> int:
+        """Sync downtime periods data.
+
+        Args:
+            mode: Sync mode
+            power_plants: List of power plant dictionaries
+            start_date: Start date filter (converted to timestamp)
+            end_date: End date filter (converted to timestamp)
+
+        Returns:
+            Number of records synced
+        """
+        logger.info("Syncing downtime periods")
+
+        if not power_plants:
+            logger.warning("No power plants available, skipping downtime periods sync")
+            return 0
+
+        try:
+            # For incremental mode, use last sync time as start_date
+            if mode == "incremental" and not start_date:
+                last_sync = self.db_handler.get_last_sync_time("downtime_periods")
+                if last_sync:
+                    start_date = last_sync.split("T")[0]
+
+            # Convert dates to timestamps for periods endpoint
+            timestamp_from = f"{start_date}T00:00:00" if start_date else None
+            timestamp_to = f"{end_date}T23:59:59" if end_date else None
+
+            periods = self.om_fetcher.fetch_all_downtime_periods(
+                power_plants=power_plants,
+                timestamp_from=timestamp_from,
+                timestamp_to=timestamp_to,
+            )
+
+            # Map UUID to ID for database insertion
+            uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
+            for period in periods:
+                if "power_plant_uuid" in period:
+                    period["power_plant_id"] = uuid_to_id.get(period["power_plant_uuid"])
+
+            count = self.db_handler.upsert_downtime_periods(periods)
+            self.db_handler.update_sync_metadata("downtime_periods", success=True)
+            return count
+
+        except Exception as e:
+            self.db_handler.update_sync_metadata(
+                "downtime_periods", success=False, error_message=str(e)
             )
             raise
 
