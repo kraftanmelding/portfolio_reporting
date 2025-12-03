@@ -94,9 +94,7 @@ class SyncCoordinator:
 
             # Sync budgets (requires power plants list)
             if self.config.get("data", {}).get("fetch_budgets", True):
-                stats["budgets"] = self._sync_budgets(
-                    mode, power_plants, start_date, end_date
-                )
+                stats["budgets"] = self._sync_budgets(mode, power_plants, start_date, end_date)
 
             logger.info(f"Sync completed successfully: {stats}")
             return stats

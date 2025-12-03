@@ -103,7 +103,9 @@ class BudgetsFetcher(BaseFetcher):
                     all_budgets.extend(budgets)
 
                 except Exception as e:
-                    logger.warning(f"Failed to fetch budgets for {uuid} ({chunk_start} to {chunk_end}): {e}")
+                    logger.warning(
+                        f"Failed to fetch budgets for {uuid} ({chunk_start} to {chunk_end}): {e}"
+                    )
                     # Continue with other chunks/plants even if one fails
                     continue
 

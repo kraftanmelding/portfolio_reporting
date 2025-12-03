@@ -145,31 +145,64 @@ class DatabaseHandler:
     def upsert_production_days(self, production_data: list[dict[str, Any]]) -> int:
         """Insert or update production days.
 
+        Groups records by (power_plant_id, date) and combines NOK/EUR revenues
+        into single records with revenue_nok and revenue_eur columns.
+
         Args:
             production_data: List of production day dictionaries
 
         Returns:
-            Number of records processed
+            Number of unique (plant, date) records processed
         """
         if not self.conn:
             raise RuntimeError("Database not connected")
 
+        # Group by (power_plant_id, date) and combine currencies
+        grouped: dict[tuple[int, str], dict[str, Any]] = {}
+
+        for record in production_data:
+            key = (record.get("power_plant_id"), record.get("date"))
+            currency = record.get("currency", "NOK")
+
+            if key not in grouped:
+                # Initialize with base data (non-currency specific fields)
+                grouped[key] = {
+                    "power_plant_id": record.get("power_plant_id"),
+                    "date": record.get("date"),
+                    "volume": record.get("volume"),
+                    "revenue_nok": None,
+                    "revenue_eur": None,
+                    "forecasted_volume": record.get("forecasted_volume"),
+                    "cap_theoretical_volume": record.get("cap_theoretical_volume"),
+                    "full_load_count": record.get("full_load_count"),
+                    "no_load_count": record.get("no_load_count"),
+                    "operational_count": record.get("operational_count"),
+                }
+
+            # Set revenue for the appropriate currency
+            if currency == "NOK":
+                grouped[key]["revenue_nok"] = record.get("revenue")
+            elif currency == "EUR":
+                grouped[key]["revenue_eur"] = record.get("revenue")
+
+        # Insert combined records
         cursor = self.conn.cursor()
         count = 0
 
-        for record in production_data:
+        for combined_record in grouped.values():
             cursor.execute(
                 """
                 INSERT INTO production_days (
-                    power_plant_id, date, volume, revenue, currency,
+                    power_plant_id, date, volume, revenue_nok, revenue_eur,
                     forecasted_volume, cap_theoretical_volume,
                     full_load_count, no_load_count, operational_count,
                     created_at, updated_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(power_plant_id, date, currency) DO UPDATE SET
+                ON CONFLICT(power_plant_id, date) DO UPDATE SET
                     volume = excluded.volume,
-                    revenue = excluded.revenue,
+                    revenue_nok = excluded.revenue_nok,
+                    revenue_eur = excluded.revenue_eur,
                     forecasted_volume = excluded.forecasted_volume,
                     cap_theoretical_volume = excluded.cap_theoretical_volume,
                     full_load_count = excluded.full_load_count,
@@ -178,16 +211,16 @@ class DatabaseHandler:
                     updated_at = excluded.updated_at
                 """,
                 (
-                    record.get("power_plant_id"),
-                    record.get("date"),
-                    record.get("volume"),
-                    record.get("revenue"),
-                    record.get("currency", "NOK"),
-                    record.get("forecasted_volume"),
-                    record.get("cap_theoretical_volume"),
-                    record.get("full_load_count"),
-                    record.get("no_load_count"),
-                    record.get("operational_count"),
+                    combined_record["power_plant_id"],
+                    combined_record["date"],
+                    combined_record["volume"],
+                    combined_record["revenue_nok"],
+                    combined_record["revenue_eur"],
+                    combined_record["forecasted_volume"],
+                    combined_record["cap_theoretical_volume"],
+                    combined_record["full_load_count"],
+                    combined_record["no_load_count"],
+                    combined_record["operational_count"],
                     datetime.utcnow().isoformat(),
                     datetime.utcnow().isoformat(),
                 ),

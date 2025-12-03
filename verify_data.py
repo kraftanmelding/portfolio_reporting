@@ -34,16 +34,20 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                    MIN(date) as min_date,
                    MAX(date) as max_date,
                    SUM(volume) as total_volume,
-                   COUNT(DISTINCT currency) as currencies
+                   SUM(revenue_nok) as total_revenue_nok,
+                   SUM(revenue_eur) as total_revenue_eur
             FROM production_days
         """)
         prod = cursor.fetchone()
         print(f"⚡ Production days: {prod['count']:,}")
         if prod["count"] > 0:
             print(f"   └─ Date range: {prod['min_date']} to {prod['max_date']}")
-            print(f"   └─ Currencies: {prod['currencies']}")
             if prod["total_volume"]:
                 print(f"   └─ Total volume: {prod['total_volume']:,.0f} MWh")
+            if prod["total_revenue_nok"]:
+                print(f"   └─ Total revenue NOK: {prod['total_revenue_nok']:,.0f}")
+            if prod["total_revenue_eur"]:
+                print(f"   └─ Total revenue EUR: {prod['total_revenue_eur']:,.0f}")
 
         # Market prices
         cursor.execute("""

@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS production_days (
     power_plant_id INTEGER NOT NULL,
     date DATE NOT NULL,
     volume REAL,
-    revenue REAL,
-    currency TEXT DEFAULT 'NOK',
+    revenue_nok REAL,
+    revenue_eur REAL,
     forecasted_volume REAL,
     cap_theoretical_volume REAL,
     full_load_count INTEGER,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS production_days (
     operational_count INTEGER,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    UNIQUE(power_plant_id, date, currency),
+    UNIQUE(power_plant_id, date),
     FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
 );
 
