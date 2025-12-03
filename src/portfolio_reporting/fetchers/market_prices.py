@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from ..utils import split_date_range_by_year
 from .base import BaseFetcher
 
 logger = logging.getLogger(__name__)
@@ -34,27 +35,42 @@ class MarketPricesFetcher(BaseFetcher):
             logger.warning("Market prices require both from_date and to_date, skipping")
             return []
 
-        try:
-            params = {
-                "from_date": from_date,
-                "to_date": to_date,
-            }
-            if price_areas:
-                params["price_areas[]"] = price_areas
+        # Split date range into yearly chunks to avoid API timeouts
+        date_chunks = split_date_range_by_year(from_date, to_date)
+        logger.info(f"Split date range into {len(date_chunks)} yearly chunks")
 
-            response = self.api_client.get("/api/v1/market_prices", params=params)
+        all_prices = []
 
-            # The response might be a list or a dict with a 'data' key
-            if isinstance(response, list):
-                prices = response
-            elif isinstance(response, dict) and "data" in response:
-                prices = response["data"]
-            else:
-                prices = [response] if response else []
+        for chunk_start, chunk_end in date_chunks:
+            try:
+                logger.debug(f"Fetching market prices from {chunk_start} to {chunk_end}")
+                params = {
+                    "from_date": chunk_start,
+                    "to_date": chunk_end,
+                }
+                if price_areas:
+                    params["price_areas[]"] = price_areas
 
-            logger.info(f"Fetched {len(prices)} market price records")
-            return prices
+                response = self.api_client.get("/api/v1/market_prices", params=params)
 
-        except Exception as e:
-            logger.error(f"Error fetching market prices: {e}")
-            raise
+                # The response might be a list or a dict with a 'data' key
+                if isinstance(response, list):
+                    prices = response
+                elif isinstance(response, dict) and "data" in response:
+                    prices = response["data"]
+                else:
+                    prices = [response] if response else []
+
+                all_prices.extend(prices)
+                logger.debug(
+                    f"Fetched {len(prices)} records for period {chunk_start} to {chunk_end}"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"Error fetching market prices for period {chunk_start} to {chunk_end}: {e}"
+                )
+                raise
+
+        logger.info(f"Fetched total of {len(all_prices)} market price records")
+        return all_prices
