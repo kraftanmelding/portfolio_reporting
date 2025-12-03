@@ -1,9 +1,9 @@
-# Captiva Portal API Configuration
+# Kaia Solutions Portal API Configuration
 # Copy this file to config.yaml and fill in your credentials
 
 api:
   base_url: "http://localhost:3000"       # Change to production URL when ready
-  api_key: "your-api-key-here"            # Get this from Captiva Portal admin
+  api_key: "your-api-key-here"            # Get this from Kaia Solutions Portal admin
   timeout: 30                             # Request timeout in seconds
   retry_attempts: 3                       # Number of retry attempts for failed requests
 

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def main():
     """Main entry point for CLI."""
     parser = argparse.ArgumentParser(
-        description="Portfolio Reporting - Fetch data from Captiva Portal API for PowerBI",
+        description="Portfolio Reporting - Fetch data from Kaia Solutions Portal API for PowerBI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

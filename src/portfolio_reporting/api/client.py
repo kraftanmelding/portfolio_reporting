@@ -1,4 +1,4 @@
-"""API client for Captiva Portal API."""
+"""API client for Kaia Solutions Portal API."""
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class APIClient:
-    """Client for interacting with Captiva Portal API."""
+    """Client for interacting with Kaia Solutions Portal API."""
 
     def __init__(
         self,
@@ -23,7 +23,7 @@ class APIClient:
         """Initialize API client.
 
         Args:
-            base_url: Base URL of the Captiva Portal API
+            base_url: Base URL of the Kaia Solutions Portal API
             api_key: API key for authentication
             timeout: Request timeout in seconds
             retry_attempts: Number of retry attempts for failed requests

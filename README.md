@@ -1,10 +1,10 @@
 # Portfolio Reporting Data Sync
 
-A simple tool to fetch data from Captiva Portal API and prepare it for PowerBI reporting.
+A simple tool to fetch data from Kaia Solutions Portal API and prepare it for PowerBI reporting.
 
 ## What Does This Do?
 
-This tool automatically downloads data from your Captiva Portal and saves it to a database file that PowerBI can read. It fetches:
+This tool automatically downloads data from your Kaia Solutions Portal and saves it to a database file that PowerBI can read. It fetches:
 
 - 📊 **Companies** - Your company information
 - 🏭 **Power Plants** - All your power plant details
@@ -19,7 +19,7 @@ The data is saved to a SQLite database file (`data/portfolio_report.db`) that Po
 
 You need:
 - Python 3.10 or newer installed on your computer
-- Access to Captiva Portal API (you'll need an API key)
+- Access to Kaia Solutions Portal API (you'll need an API key)
 - Internet connection to reach the API
 
 ## Installation
@@ -58,8 +58,8 @@ Before running the sync, you need to configure your API connection:
 2. Edit `config.yaml` with your settings:
    ```yaml
    api:
-     base_url: "http://localhost:3000"  # Your Captiva Portal URL
-     api_key: "your_api_key_here"       # Get this from Captiva Portal
+     base_url: "http://localhost:3000"  # Your Kaia Solutions Portal URL
+     api_key: "your_api_key_here"       # Get this from Kaia Solutions Portal
      timeout: 30
      retry_attempts: 3
 
@@ -71,7 +71,7 @@ Before running the sync, you need to configure your API connection:
      # end_date: "2025-12-31"           # Optional: limit end date
    ```
 
-3. **Important:** Replace `your_api_key_here` with your actual API key from Captiva Portal
+3. **Important:** Replace `your_api_key_here` with your actual API key from Kaia Solutions Portal
 
 ## How to Run
 
@@ -182,14 +182,14 @@ pip install -r requirements.txt
 ### "Connection refused" or "Timeout" Errors
 
 - Check that the `base_url` in `config.yaml` is correct
-- Verify you have network access to the Captiva Portal
+- Verify you have network access to the Kaia Solutions Portal
 - Check that the API key is valid
 
 ### "Authentication error"
 
 - Verify your API key in `config.yaml` is correct
 - Check that your API key has not expired
-- Contact your Captiva Portal administrator
+- Contact your Kaia Solutions Portal administrator
 
 ### "No data returned"
 

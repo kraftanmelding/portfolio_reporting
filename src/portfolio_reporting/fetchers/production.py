@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProductionFetcher(BaseFetcher):
-    """Fetcher for production data from Captiva Portal API."""
+    """Fetcher for production data from Kaia Solutions Portal API."""
 
     def fetch_production_days(
         self,

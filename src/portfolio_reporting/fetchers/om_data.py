@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class OMDataFetcher(BaseFetcher):
-    """Fetcher for O&M data from Captiva Portal API."""
+    """Fetcher for O&M data from Kaia Solutions Portal API."""
 
     def fetch_downtime_events(
         self,

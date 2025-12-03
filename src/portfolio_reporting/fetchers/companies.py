@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class CompaniesFetcher(BaseFetcher):
-    """Fetcher for company data from Captiva Portal API."""
+    """Fetcher for company data from Kaia Solutions Portal API."""
 
     def fetch(self) -> List[Dict[str, Any]]:
         """Fetch all companies.

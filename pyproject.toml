@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "portfolio_reporting"
 version = "0.1.0"
-description = "Python library for preparing PowerBI report data from Captiva Portal API"
-authors = ["Captiva <noreply@captiva.com>"]
+description = "Python library for preparing PowerBI report data from Kaia Solutions Portal API"
+authors = ["Kaia Solutions <noreply@kaiasolutions.com>"]
 readme = "README.md"
 packages = [{include = "portfolio_reporting", from = "src"}]
 

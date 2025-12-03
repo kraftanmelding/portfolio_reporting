@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class MarketPricesFetcher(BaseFetcher):
-    """Fetcher for market price data from Captiva Portal API."""
+    """Fetcher for market price data from Kaia Solutions Portal API."""
 
     def fetch(
         self,
