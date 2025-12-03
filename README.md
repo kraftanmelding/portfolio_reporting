@@ -290,11 +290,15 @@ If you encounter issues:
 - The `config.yaml.example` file does not contain sensitive information
 - Store the database file securely as it contains your business data
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ## Support
 
 For technical support or feature requests, contact the development team.
 
 ---
 
-**Version:** 1.0.0  
+**Version:** 1.0.0
 **Last Updated:** December 2025
