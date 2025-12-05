@@ -121,6 +121,7 @@ class OMDataFetcher(BaseFetcher):
         from_date: str | None = None,
         to_date: str | None = None,
         reason: str | None = None,
+        currency: str = "NOK",
     ) -> list[dict[str, Any]]:
         """Fetch downtime days (daily aggregated) for a specific power plant.
 
@@ -129,14 +130,15 @@ class OMDataFetcher(BaseFetcher):
             from_date: Start date (YYYY-MM-DD format)
             to_date: End date (YYYY-MM-DD format)
             reason: Filter by reason
+            currency: Currency for cost (NOK or EUR)
 
         Returns:
             List of downtime day dictionaries
         """
-        logger.debug(f"Fetching downtime days for power plant {power_plant_uuid}")
+        logger.debug(f"Fetching downtime days for power plant {power_plant_uuid} in {currency}")
 
         try:
-            params = {"power_plant_uuid": power_plant_uuid}
+            params = {"power_plant_uuid": power_plant_uuid, "currency": currency}
             if from_date:
                 params["from_date"] = from_date
             if to_date:
@@ -167,19 +169,26 @@ class OMDataFetcher(BaseFetcher):
         from_date: str | None = None,
         to_date: str | None = None,
         reason: str | None = None,
+        currencies: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Fetch downtime days for all power plants.
+        """Fetch downtime days for all power plants in multiple currencies.
 
         Args:
             power_plants: List of power plant dictionaries with 'uuid' field
             from_date: Start date (YYYY-MM-DD format)
             to_date: End date (YYYY-MM-DD format)
             reason: Filter by reason
+            currencies: List of currencies to fetch (default: ["NOK", "EUR"])
 
         Returns:
             List of all downtime day dictionaries
         """
-        logger.info(f"Fetching downtime days for {len(power_plants)} power plants")
+        if currencies is None:
+            currencies = ["NOK", "EUR"]
+
+        logger.info(
+            f"Fetching downtime days for {len(power_plants)} power plants in {len(currencies)} currencies"
+        )
 
         # Split date range into yearly chunks to avoid API timeouts
         date_chunks = split_date_range_by_year(from_date, to_date)
@@ -193,26 +202,33 @@ class OMDataFetcher(BaseFetcher):
                 logger.warning(f"Power plant missing UUID: {plant.get('name', 'Unknown')}")
                 continue
 
-            # Fetch downtime days for each yearly chunk
-            for chunk_start, chunk_end in date_chunks:
-                try:
-                    logger.debug(
-                        f"Fetching downtime days for {uuid} from {chunk_start} to {chunk_end}"
-                    )
-                    days = self.fetch_downtime_days(
-                        power_plant_uuid=uuid,
-                        from_date=chunk_start,
-                        to_date=chunk_end,
-                        reason=reason,
-                    )
-                    all_days.extend(days)
+            # Fetch downtime days for each currency
+            for currency in currencies:
+                # Fetch downtime days for each yearly chunk
+                for chunk_start, chunk_end in date_chunks:
+                    try:
+                        logger.debug(
+                            f"Fetching downtime days for {uuid} in {currency} from {chunk_start} to {chunk_end}"
+                        )
+                        days = self.fetch_downtime_days(
+                            power_plant_uuid=uuid,
+                            from_date=chunk_start,
+                            to_date=chunk_end,
+                            reason=reason,
+                            currency=currency,
+                        )
+                        # Add currency field to each record for grouping later
+                        for day in days:
+                            day["currency"] = currency
+                            day["power_plant_uuid"] = uuid
+                        all_days.extend(days)
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch downtime days for {uuid} ({chunk_start} to {chunk_end}): {e}"
-                    )
-                    # Continue with other chunks/plants even if one fails
-                    continue
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to fetch downtime days for {uuid} in {currency} ({chunk_start} to {chunk_end}): {e}"
+                        )
+                        # Continue with other chunks/plants even if one fails
+                        continue
 
         logger.info(f"Fetched total of {len(all_days)} downtime days")
         return all_days
@@ -222,6 +238,7 @@ class OMDataFetcher(BaseFetcher):
         power_plant_uuid: str,
         timestamp_from: str | None = None,
         timestamp_to: str | None = None,
+        currency: str = "NOK",
     ) -> list[dict[str, Any]]:
         """Fetch downtime periods (hourly) for a specific power plant.
 
@@ -229,14 +246,15 @@ class OMDataFetcher(BaseFetcher):
             power_plant_uuid: Power plant UUID (required)
             timestamp_from: Start timestamp (ISO8601 format)
             timestamp_to: End timestamp (ISO8601 format)
+            currency: Currency for cost (NOK or EUR)
 
         Returns:
             List of downtime period dictionaries
         """
-        logger.debug(f"Fetching downtime periods for power plant {power_plant_uuid}")
+        logger.debug(f"Fetching downtime periods for power plant {power_plant_uuid} in {currency}")
 
         try:
-            params = {"power_plant_uuid": power_plant_uuid}
+            params = {"power_plant_uuid": power_plant_uuid, "currency": currency}
             if timestamp_from:
                 params["timestamp_from"] = timestamp_from
             if timestamp_to:
@@ -264,18 +282,25 @@ class OMDataFetcher(BaseFetcher):
         power_plants: list[dict[str, Any]],
         timestamp_from: str | None = None,
         timestamp_to: str | None = None,
+        currencies: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Fetch downtime periods for all power plants.
+        """Fetch downtime periods for all power plants in multiple currencies.
 
         Args:
             power_plants: List of power plant dictionaries with 'uuid' field
             timestamp_from: Start timestamp (ISO8601 format)
             timestamp_to: End timestamp (ISO8601 format)
+            currencies: List of currencies to fetch (default: ["NOK", "EUR"])
 
         Returns:
             List of all downtime period dictionaries
         """
-        logger.info(f"Fetching downtime periods for {len(power_plants)} power plants")
+        if currencies is None:
+            currencies = ["NOK", "EUR"]
+
+        logger.info(
+            f"Fetching downtime periods for {len(power_plants)} power plants in {len(currencies)} currencies"
+        )
 
         # Split date range into yearly chunks to avoid API timeouts
         date_chunks = split_date_range_by_year(timestamp_from, timestamp_to)
@@ -289,25 +314,32 @@ class OMDataFetcher(BaseFetcher):
                 logger.warning(f"Power plant missing UUID: {plant.get('name', 'Unknown')}")
                 continue
 
-            # Fetch downtime periods for each yearly chunk
-            for chunk_start, chunk_end in date_chunks:
-                try:
-                    logger.debug(
-                        f"Fetching downtime periods for {uuid} from {chunk_start} to {chunk_end}"
-                    )
-                    periods = self.fetch_downtime_periods(
-                        power_plant_uuid=uuid,
-                        timestamp_from=chunk_start,
-                        timestamp_to=chunk_end,
-                    )
-                    all_periods.extend(periods)
+            # Fetch downtime periods for each currency
+            for currency in currencies:
+                # Fetch downtime periods for each yearly chunk
+                for chunk_start, chunk_end in date_chunks:
+                    try:
+                        logger.debug(
+                            f"Fetching downtime periods for {uuid} in {currency} from {chunk_start} to {chunk_end}"
+                        )
+                        periods = self.fetch_downtime_periods(
+                            power_plant_uuid=uuid,
+                            timestamp_from=chunk_start,
+                            timestamp_to=chunk_end,
+                            currency=currency,
+                        )
+                        # Add currency field to each record for grouping later
+                        for period in periods:
+                            period["currency"] = currency
+                            period["power_plant_uuid"] = uuid
+                        all_periods.extend(periods)
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch downtime periods for {uuid} ({chunk_start} to {chunk_end}): {e}"
-                    )
-                    # Continue with other chunks/plants even if one fails
-                    continue
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to fetch downtime periods for {uuid} in {currency} ({chunk_start} to {chunk_end}): {e}"
+                        )
+                        # Continue with other chunks/plants even if one fails
+                        continue
 
         logger.info(f"Fetched total of {len(all_periods)} downtime periods")
         return all_periods
@@ -319,6 +351,7 @@ class OMDataFetcher(BaseFetcher):
         end_date: str | None = None,
         status: str | None = None,
         limit: int | None = None,
+        currency: str = "NOK",
     ) -> list[dict[str, Any]]:
         """Fetch work items for a specific power plant.
 
@@ -328,14 +361,15 @@ class OMDataFetcher(BaseFetcher):
             end_date: End date (YYYY-MM-DD format)
             status: Filter by status (e.g., 'open', 'closed')
             limit: Maximum number of items to fetch (API default is 100)
+            currency: Currency for costs (NOK or EUR)
 
         Returns:
             List of work item dictionaries
         """
-        logger.debug(f"Fetching work items for power plant {power_plant_uuid}")
+        logger.debug(f"Fetching work items for power plant {power_plant_uuid} in {currency}")
 
         try:
-            params = {"power_plant_uuid": power_plant_uuid}
+            params = {"power_plant_uuid": power_plant_uuid, "currency": currency}
             if start_date:
                 params["start_date"] = start_date
             if end_date:
@@ -369,8 +403,9 @@ class OMDataFetcher(BaseFetcher):
         end_date: str | None = None,
         status: str | None = None,
         limit: int | None = None,
+        currencies: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Fetch work items for all power plants.
+        """Fetch work items for all power plants in multiple currencies.
 
         Args:
             power_plants: List of power plant dictionaries with 'uuid' field
@@ -378,11 +413,17 @@ class OMDataFetcher(BaseFetcher):
             end_date: End date (YYYY-MM-DD format)
             status: Filter by status (e.g., 'open', 'closed')
             limit: Maximum number of items to fetch per plant
+            currencies: List of currencies to fetch (default: ["NOK", "EUR"])
 
         Returns:
             List of all work item dictionaries
         """
-        logger.info(f"Fetching work items for {len(power_plants)} power plants")
+        if currencies is None:
+            currencies = ["NOK", "EUR"]
+
+        logger.info(
+            f"Fetching work items for {len(power_plants)} power plants in {len(currencies)} currencies"
+        )
 
         # Split date range into yearly chunks to avoid API timeouts
         date_chunks = split_date_range_by_year(start_date, end_date)
@@ -396,27 +437,34 @@ class OMDataFetcher(BaseFetcher):
                 logger.warning(f"Power plant missing UUID: {plant.get('name', 'Unknown')}")
                 continue
 
-            # Fetch work items for each yearly chunk
-            for chunk_start, chunk_end in date_chunks:
-                try:
-                    logger.debug(
-                        f"Fetching work items for {uuid} from {chunk_start} to {chunk_end}"
-                    )
-                    items = self.fetch_work_items(
-                        power_plant_uuid=uuid,
-                        start_date=chunk_start,
-                        end_date=chunk_end,
-                        status=status,
-                        limit=limit,
-                    )
-                    all_items.extend(items)
+            # Fetch work items for each currency
+            for currency in currencies:
+                # Fetch work items for each yearly chunk
+                for chunk_start, chunk_end in date_chunks:
+                    try:
+                        logger.debug(
+                            f"Fetching work items for {uuid} in {currency} from {chunk_start} to {chunk_end}"
+                        )
+                        items = self.fetch_work_items(
+                            power_plant_uuid=uuid,
+                            start_date=chunk_start,
+                            end_date=chunk_end,
+                            status=status,
+                            limit=limit,
+                            currency=currency,
+                        )
+                        # Add currency field to each record for grouping later
+                        for item in items:
+                            item["currency"] = currency
+                            item["power_plant_uuid"] = uuid
+                        all_items.extend(items)
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch work items for {uuid} ({chunk_start} to {chunk_end}): {e}"
-                    )
-                    # Continue with other chunks/plants even if one fails
-                    continue
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to fetch work items for {uuid} in {currency} ({chunk_start} to {chunk_end}): {e}"
+                        )
+                        # Continue with other chunks/plants even if one fails
+                        continue
 
         logger.info(f"Fetched total of {len(all_items)} work items")
         return all_items

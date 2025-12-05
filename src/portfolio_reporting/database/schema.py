@@ -47,6 +47,24 @@ CREATE TABLE IF NOT EXISTS production_days (
     FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
 );
 
+-- Production periods table (hourly production)
+CREATE TABLE IF NOT EXISTS production_periods (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    power_plant_id INTEGER NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    volume REAL,
+    revenue_nok REAL,
+    revenue_eur REAL,
+    forecasted_volume REAL,
+    downtime_volume REAL,
+    downtime_cost_nok REAL,
+    downtime_cost_eur REAL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    UNIQUE(power_plant_id, timestamp),
+    FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
+);
+
 -- Market prices table
 CREATE TABLE IF NOT EXISTS market_prices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,7 +99,8 @@ CREATE TABLE IF NOT EXISTS downtime_days (
     date DATE NOT NULL,
     reason TEXT,
     volume REAL,
-    cost REAL,
+    cost_nok REAL,
+    cost_eur REAL,
     hour_count INTEGER,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
@@ -97,7 +116,8 @@ CREATE TABLE IF NOT EXISTS downtime_periods (
     timestamp TIMESTAMP NOT NULL,
     reason TEXT,
     volume REAL,
-    cost REAL,
+    cost_nok REAL,
+    cost_eur REAL,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     UNIQUE(power_plant_id, timestamp),
@@ -129,6 +149,12 @@ CREATE TABLE IF NOT EXISTS work_items (
     assigned_to TEXT,
     due_date DATE,
     completed_at TIMESTAMP,
+    budget_cost_nok REAL,
+    budget_cost_eur REAL,
+    elapsed_cost_nok REAL,
+    elapsed_cost_eur REAL,
+    forecast_cost_nok REAL,
+    forecast_cost_eur REAL,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     FOREIGN KEY (power_plant_id) REFERENCES power_plants (id)
@@ -140,9 +166,11 @@ CREATE TABLE IF NOT EXISTS budgets (
     power_plant_id INTEGER NOT NULL,
     month DATE NOT NULL,
     volume REAL,
-    revenue REAL,
+    revenue_nok REAL,
+    revenue_eur REAL,
     avg_daily_volume REAL,
-    avg_daily_revenue REAL,
+    avg_daily_revenue_nok REAL,
+    avg_daily_revenue_eur REAL,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     UNIQUE(power_plant_id, month),
@@ -195,6 +223,9 @@ CREATE INDEX IF NOT EXISTS idx_production_days_date
 
 CREATE INDEX IF NOT EXISTS idx_production_days_power_plant
     ON production_days(power_plant_id, date);
+
+CREATE INDEX IF NOT EXISTS idx_production_periods_power_plant
+    ON production_periods(power_plant_id, timestamp);
 
 CREATE INDEX IF NOT EXISTS idx_market_prices_timestamp
     ON market_prices(timestamp);

@@ -18,6 +18,7 @@ class BudgetsFetcher(BaseFetcher):
         from_date: str | None = None,
         to_date: str | None = None,
         limit: int | None = None,
+        currency: str = "NOK",
     ) -> list[dict[str, Any]]:
         """Fetch budgets for a specific power plant.
 
@@ -26,14 +27,15 @@ class BudgetsFetcher(BaseFetcher):
             from_date: Start date (YYYY-MM-DD format)
             to_date: End date (YYYY-MM-DD format)
             limit: Maximum number of months to fetch (default 120, max 360)
+            currency: Currency for revenue (NOK or EUR)
 
         Returns:
             List of budget dictionaries
         """
-        logger.debug(f"Fetching budgets for power plant {power_plant_uuid}")
+        logger.debug(f"Fetching budgets for power plant {power_plant_uuid} in {currency}")
 
         try:
-            params = {"power_plant_uuid": power_plant_uuid}
+            params = {"power_plant_uuid": power_plant_uuid, "currency": currency}
             if from_date:
                 params["from"] = from_date
             if to_date:
@@ -64,19 +66,26 @@ class BudgetsFetcher(BaseFetcher):
         from_date: str | None = None,
         to_date: str | None = None,
         limit: int | None = None,
+        currencies: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Fetch budgets for all power plants.
+        """Fetch budgets for all power plants in multiple currencies.
 
         Args:
             power_plants: List of power plant dictionaries with 'uuid' field
             from_date: Start date (YYYY-MM-DD format)
             to_date: End date (YYYY-MM-DD format)
             limit: Maximum number of months to fetch per plant
+            currencies: List of currencies to fetch (default: ["NOK", "EUR"])
 
         Returns:
             List of all budget dictionaries
         """
-        logger.info(f"Fetching budgets for {len(power_plants)} power plants")
+        if currencies is None:
+            currencies = ["NOK", "EUR"]
+
+        logger.info(
+            f"Fetching budgets for {len(power_plants)} power plants in {len(currencies)} currencies"
+        )
 
         # Split date range into yearly chunks to avoid API timeouts
         date_chunks = split_date_range_by_year(from_date, to_date)
@@ -90,24 +99,33 @@ class BudgetsFetcher(BaseFetcher):
                 logger.warning(f"Power plant missing UUID: {plant.get('name', 'Unknown')}")
                 continue
 
-            # Fetch budgets for each yearly chunk
-            for chunk_start, chunk_end in date_chunks:
-                try:
-                    logger.debug(f"Fetching budgets for {uuid} from {chunk_start} to {chunk_end}")
-                    budgets = self.fetch_budgets(
-                        power_plant_uuid=uuid,
-                        from_date=chunk_start,
-                        to_date=chunk_end,
-                        limit=limit,
-                    )
-                    all_budgets.extend(budgets)
+            # Fetch budgets for each currency
+            for currency in currencies:
+                # Fetch budgets for each yearly chunk
+                for chunk_start, chunk_end in date_chunks:
+                    try:
+                        logger.debug(
+                            f"Fetching budgets for {uuid} in {currency} from {chunk_start} to {chunk_end}"
+                        )
+                        budgets = self.fetch_budgets(
+                            power_plant_uuid=uuid,
+                            from_date=chunk_start,
+                            to_date=chunk_end,
+                            limit=limit,
+                            currency=currency,
+                        )
+                        # Add currency field to each record for grouping later
+                        for budget in budgets:
+                            budget["currency"] = currency
+                            budget["power_plant_uuid"] = uuid
+                        all_budgets.extend(budgets)
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch budgets for {uuid} ({chunk_start} to {chunk_end}): {e}"
-                    )
-                    # Continue with other chunks/plants even if one fails
-                    continue
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to fetch budgets for {uuid} in {currency} ({chunk_start} to {chunk_end}): {e}"
+                        )
+                        # Continue with other chunks/plants even if one fails
+                        continue
 
         logger.info(f"Fetched total of {len(all_budgets)} budget records")
         return all_budgets

@@ -231,6 +231,94 @@ class DatabaseHandler:
         logger.info(f"Upserted {count} production day records")
         return count
 
+    def upsert_production_periods(self, production_data: list[dict[str, Any]]) -> int:
+        """Insert or update production periods (hourly).
+
+        Groups records by (power_plant_id, timestamp) and combines NOK/EUR revenues
+        into single records with revenue_nok, revenue_eur, downtime_cost_nok, and
+        downtime_cost_eur columns.
+
+        Args:
+            production_data: List of production period dictionaries
+
+        Returns:
+            Number of unique (plant, timestamp) records processed
+        """
+        if not self.conn:
+            raise RuntimeError("Database not connected")
+
+        # Group by (power_plant_id, timestamp) and combine currencies
+        grouped: dict[tuple[int, str], dict[str, Any]] = {}
+
+        for record in production_data:
+            key = (record.get("power_plant_id"), record.get("timestamp"))
+            currency = record.get("currency", "NOK")
+
+            if key not in grouped:
+                # Initialize with base data (non-currency specific fields)
+                grouped[key] = {
+                    "power_plant_id": record.get("power_plant_id"),
+                    "timestamp": record.get("timestamp"),
+                    "volume": record.get("volume"),
+                    "revenue_nok": None,
+                    "revenue_eur": None,
+                    "forecasted_volume": record.get("forecasted_volume"),
+                    "downtime_volume": record.get("downtime_volume"),
+                    "downtime_cost_nok": None,
+                    "downtime_cost_eur": None,
+                }
+
+            # Set revenue and downtime cost for the appropriate currency
+            if currency == "NOK":
+                grouped[key]["revenue_nok"] = record.get("revenue")
+                grouped[key]["downtime_cost_nok"] = record.get("downtime_cost")
+            elif currency == "EUR":
+                grouped[key]["revenue_eur"] = record.get("revenue")
+                grouped[key]["downtime_cost_eur"] = record.get("downtime_cost")
+
+        # Insert combined records
+        cursor = self.conn.cursor()
+        count = 0
+
+        for combined_record in grouped.values():
+            cursor.execute(
+                """
+                INSERT INTO production_periods (
+                    power_plant_id, timestamp, volume, revenue_nok, revenue_eur,
+                    forecasted_volume, downtime_volume, downtime_cost_nok, downtime_cost_eur,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(power_plant_id, timestamp) DO UPDATE SET
+                    volume = excluded.volume,
+                    revenue_nok = excluded.revenue_nok,
+                    revenue_eur = excluded.revenue_eur,
+                    forecasted_volume = excluded.forecasted_volume,
+                    downtime_volume = excluded.downtime_volume,
+                    downtime_cost_nok = excluded.downtime_cost_nok,
+                    downtime_cost_eur = excluded.downtime_cost_eur,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    combined_record["power_plant_id"],
+                    combined_record["timestamp"],
+                    combined_record["volume"],
+                    combined_record["revenue_nok"],
+                    combined_record["revenue_eur"],
+                    combined_record["forecasted_volume"],
+                    combined_record["downtime_volume"],
+                    combined_record["downtime_cost_nok"],
+                    combined_record["downtime_cost_eur"],
+                    datetime.utcnow().isoformat(),
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            count += 1
+
+        self.conn.commit()
+        logger.info(f"Upserted {count} production period records")
+        return count
+
     def upsert_market_prices(self, prices: list[dict[str, Any]]) -> int:
         """Insert or update market prices.
 
@@ -328,6 +416,9 @@ class DatabaseHandler:
     def upsert_downtime_days(self, days: list[dict[str, Any]]) -> int:
         """Insert or update downtime days.
 
+        Groups records by (power_plant_id, date, reason) and combines NOK/EUR costs
+        into single records with cost_nok and cost_eur columns.
+
         Args:
             days: List of downtime day dictionaries
 
@@ -337,31 +428,60 @@ class DatabaseHandler:
         if not self.conn:
             raise RuntimeError("Database not connected")
 
+        # Group by (power_plant_id, date, reason) and combine currencies
+        grouped: dict[tuple[int, str, str | None], dict[str, Any]] = {}
+
+        for record in days:
+            key = (record.get("power_plant_id"), record.get("date"), record.get("reason"))
+            currency = record.get("currency", "NOK")
+
+            if key not in grouped:
+                # Initialize with base data (non-currency specific fields)
+                grouped[key] = {
+                    "id": record.get("id"),
+                    "power_plant_id": record.get("power_plant_id"),
+                    "date": record.get("date"),
+                    "reason": record.get("reason"),
+                    "volume": record.get("volume"),
+                    "cost_nok": None,
+                    "cost_eur": None,
+                    "hour_count": record.get("hour_count"),
+                }
+
+            # Set cost for the appropriate currency
+            if currency == "NOK":
+                grouped[key]["cost_nok"] = record.get("cost")
+            elif currency == "EUR":
+                grouped[key]["cost_eur"] = record.get("cost")
+
+        # Insert combined records
         cursor = self.conn.cursor()
         count = 0
 
-        for day in days:
+        for combined_record in grouped.values():
             cursor.execute(
                 """
                 INSERT INTO downtime_days (
-                    id, power_plant_id, date, reason, volume, cost, hour_count,
+                    id, power_plant_id, date, reason, volume, cost_nok, cost_eur, hour_count,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(power_plant_id, date, reason) DO UPDATE SET
                     volume = excluded.volume,
-                    cost = excluded.cost,
+                    cost_nok = excluded.cost_nok,
+                    cost_eur = excluded.cost_eur,
                     hour_count = excluded.hour_count,
                     updated_at = excluded.updated_at
                 """,
                 (
-                    day.get("id"),
-                    day.get("power_plant_id"),
-                    day.get("date"),
-                    day.get("reason"),
-                    day.get("volume"),
-                    day.get("cost"),
-                    day.get("hour_count"),
+                    combined_record["id"],
+                    combined_record["power_plant_id"],
+                    combined_record["date"],
+                    combined_record["reason"],
+                    combined_record["volume"],
+                    combined_record["cost_nok"],
+                    combined_record["cost_eur"],
+                    combined_record["hour_count"],
                     datetime.utcnow().isoformat(),
                     datetime.utcnow().isoformat(),
                 ),
@@ -375,6 +495,9 @@ class DatabaseHandler:
     def upsert_downtime_periods(self, periods: list[dict[str, Any]]) -> int:
         """Insert or update downtime periods.
 
+        Groups records by (power_plant_id, timestamp) and combines NOK/EUR costs
+        into single records with cost_nok and cost_eur columns.
+
         Args:
             periods: List of downtime period dictionaries
 
@@ -384,32 +507,61 @@ class DatabaseHandler:
         if not self.conn:
             raise RuntimeError("Database not connected")
 
+        # Group by (power_plant_id, timestamp) and combine currencies
+        grouped: dict[tuple[int, str], dict[str, Any]] = {}
+
+        for record in periods:
+            key = (record.get("power_plant_id"), record.get("timestamp"))
+            currency = record.get("currency", "NOK")
+
+            if key not in grouped:
+                # Initialize with base data (non-currency specific fields)
+                grouped[key] = {
+                    "id": record.get("id"),
+                    "power_plant_id": record.get("power_plant_id"),
+                    "downtime_event_id": record.get("downtime_event_id"),
+                    "timestamp": record.get("timestamp"),
+                    "reason": record.get("reason"),
+                    "volume": record.get("volume"),
+                    "cost_nok": None,
+                    "cost_eur": None,
+                }
+
+            # Set cost for the appropriate currency
+            if currency == "NOK":
+                grouped[key]["cost_nok"] = record.get("cost")
+            elif currency == "EUR":
+                grouped[key]["cost_eur"] = record.get("cost")
+
+        # Insert combined records
         cursor = self.conn.cursor()
         count = 0
 
-        for period in periods:
+        for combined_record in grouped.values():
             cursor.execute(
                 """
                 INSERT INTO downtime_periods (
                     id, power_plant_id, downtime_event_id, timestamp, reason,
-                    volume, cost, created_at, updated_at
+                    volume, cost_nok, cost_eur, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(power_plant_id, timestamp) DO UPDATE SET
                     downtime_event_id = excluded.downtime_event_id,
                     reason = excluded.reason,
                     volume = excluded.volume,
-                    cost = excluded.cost,
+                    cost_nok = excluded.cost_nok,
+                    cost_eur = excluded.cost_eur,
                     updated_at = excluded.updated_at
                 """,
                 (
-                    period.get("id"),
-                    period.get("power_plant_id"),
-                    period.get("downtime_event_id"),
-                    period.get("timestamp"),
-                    period.get("reason"),
-                    period.get("volume"),
-                    period.get("cost"),
+                    combined_record["id"],
+                    combined_record["power_plant_id"],
+                    combined_record["downtime_event_id"],
+                    combined_record["timestamp"],
+                    combined_record["reason"],
+                    combined_record["volume"],
+                    combined_record["cost_nok"],
+                    combined_record["cost_eur"],
                     datetime.utcnow().isoformat(),
                     datetime.utcnow().isoformat(),
                 ),
@@ -423,6 +575,10 @@ class DatabaseHandler:
     def upsert_work_items(self, items: list[dict[str, Any]]) -> int:
         """Insert or update work items.
 
+        Groups records by work item id and combines NOK/EUR costs
+        into single records with budget_cost_nok, budget_cost_eur, elapsed_cost_nok,
+        elapsed_cost_eur, forecast_cost_nok, and forecast_cost_eur columns.
+
         Args:
             items: List of work item dictionaries
 
@@ -432,18 +588,58 @@ class DatabaseHandler:
         if not self.conn:
             raise RuntimeError("Database not connected")
 
+        # Group by id and combine currencies
+        grouped: dict[int, dict[str, Any]] = {}
+
+        for record in items:
+            key = record.get("id")
+            currency = record.get("currency", "NOK")
+
+            if key not in grouped:
+                # Initialize with base data (non-currency specific fields)
+                grouped[key] = {
+                    "id": record.get("id"),
+                    "power_plant_id": record.get("power_plant_id"),
+                    "title": record.get("title"),
+                    "description": record.get("description"),
+                    "status": record.get("status"),
+                    "priority": record.get("priority"),
+                    "assigned_to": record.get("assigned_to"),
+                    "due_date": record.get("due_date"),
+                    "completed_at": record.get("completed_at"),
+                    "budget_cost_nok": None,
+                    "budget_cost_eur": None,
+                    "elapsed_cost_nok": None,
+                    "elapsed_cost_eur": None,
+                    "forecast_cost_nok": None,
+                    "forecast_cost_eur": None,
+                    "created_at": record.get("created_at"),
+                }
+
+            # Set costs for the appropriate currency
+            if currency == "NOK":
+                grouped[key]["budget_cost_nok"] = record.get("budget_cost")
+                grouped[key]["elapsed_cost_nok"] = record.get("elapsed_cost")
+                grouped[key]["forecast_cost_nok"] = record.get("forecast_cost")
+            elif currency == "EUR":
+                grouped[key]["budget_cost_eur"] = record.get("budget_cost")
+                grouped[key]["elapsed_cost_eur"] = record.get("elapsed_cost")
+                grouped[key]["forecast_cost_eur"] = record.get("forecast_cost")
+
+        # Insert combined records
         cursor = self.conn.cursor()
         count = 0
 
-        for item in items:
+        for combined_record in grouped.values():
             cursor.execute(
                 """
                 INSERT INTO work_items (
                     id, power_plant_id, title, description, status,
                     priority, assigned_to, due_date, completed_at,
-                    created_at, updated_at
+                    budget_cost_nok, budget_cost_eur, elapsed_cost_nok, elapsed_cost_eur,
+                    forecast_cost_nok, forecast_cost_eur, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     title = excluded.title,
                     description = excluded.description,
@@ -452,19 +648,31 @@ class DatabaseHandler:
                     assigned_to = excluded.assigned_to,
                     due_date = excluded.due_date,
                     completed_at = excluded.completed_at,
+                    budget_cost_nok = excluded.budget_cost_nok,
+                    budget_cost_eur = excluded.budget_cost_eur,
+                    elapsed_cost_nok = excluded.elapsed_cost_nok,
+                    elapsed_cost_eur = excluded.elapsed_cost_eur,
+                    forecast_cost_nok = excluded.forecast_cost_nok,
+                    forecast_cost_eur = excluded.forecast_cost_eur,
                     updated_at = excluded.updated_at
                 """,
                 (
-                    item.get("id"),
-                    item.get("power_plant_id"),
-                    item.get("title"),
-                    item.get("description"),
-                    item.get("status"),
-                    item.get("priority"),
-                    item.get("assigned_to"),
-                    item.get("due_date"),
-                    item.get("completed_at"),
-                    item.get("created_at"),
+                    combined_record["id"],
+                    combined_record["power_plant_id"],
+                    combined_record["title"],
+                    combined_record["description"],
+                    combined_record["status"],
+                    combined_record["priority"],
+                    combined_record["assigned_to"],
+                    combined_record["due_date"],
+                    combined_record["completed_at"],
+                    combined_record["budget_cost_nok"],
+                    combined_record["budget_cost_eur"],
+                    combined_record["elapsed_cost_nok"],
+                    combined_record["elapsed_cost_eur"],
+                    combined_record["forecast_cost_nok"],
+                    combined_record["forecast_cost_eur"],
+                    combined_record["created_at"],
                     datetime.utcnow().isoformat(),
                 ),
             )
@@ -477,6 +685,10 @@ class DatabaseHandler:
     def upsert_budgets(self, budgets: list[dict[str, Any]]) -> int:
         """Insert or update budgets.
 
+        Groups records by (power_plant_id, month) and combines NOK/EUR revenues
+        into single records with revenue_nok, revenue_eur, avg_daily_revenue_nok,
+        and avg_daily_revenue_eur columns.
+
         Args:
             budgets: List of budget dictionaries
 
@@ -486,33 +698,67 @@ class DatabaseHandler:
         if not self.conn:
             raise RuntimeError("Database not connected")
 
+        # Group by (power_plant_id, month) and combine currencies
+        grouped: dict[tuple[int, str], dict[str, Any]] = {}
+
+        for record in budgets:
+            key = (record.get("power_plant_id"), record.get("month"))
+            currency = record.get("currency", "NOK")
+
+            if key not in grouped:
+                # Initialize with base data (non-currency specific fields)
+                grouped[key] = {
+                    "id": record.get("id"),
+                    "power_plant_id": record.get("power_plant_id"),
+                    "month": record.get("month"),
+                    "volume": record.get("volume"),
+                    "revenue_nok": None,
+                    "revenue_eur": None,
+                    "avg_daily_volume": record.get("avg_daily_volume"),
+                    "avg_daily_revenue_nok": None,
+                    "avg_daily_revenue_eur": None,
+                }
+
+            # Set revenue for the appropriate currency
+            if currency == "NOK":
+                grouped[key]["revenue_nok"] = record.get("revenue")
+                grouped[key]["avg_daily_revenue_nok"] = record.get("avg_daily_revenue")
+            elif currency == "EUR":
+                grouped[key]["revenue_eur"] = record.get("revenue")
+                grouped[key]["avg_daily_revenue_eur"] = record.get("avg_daily_revenue")
+
+        # Insert combined records
         cursor = self.conn.cursor()
         count = 0
 
-        for budget in budgets:
+        for combined_record in grouped.values():
             cursor.execute(
                 """
                 INSERT INTO budgets (
-                    id, power_plant_id, month, volume, revenue,
-                    avg_daily_volume, avg_daily_revenue,
+                    id, power_plant_id, month, volume, revenue_nok, revenue_eur,
+                    avg_daily_volume, avg_daily_revenue_nok, avg_daily_revenue_eur,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(power_plant_id, month) DO UPDATE SET
                     volume = excluded.volume,
-                    revenue = excluded.revenue,
+                    revenue_nok = excluded.revenue_nok,
+                    revenue_eur = excluded.revenue_eur,
                     avg_daily_volume = excluded.avg_daily_volume,
-                    avg_daily_revenue = excluded.avg_daily_revenue,
+                    avg_daily_revenue_nok = excluded.avg_daily_revenue_nok,
+                    avg_daily_revenue_eur = excluded.avg_daily_revenue_eur,
                     updated_at = excluded.updated_at
                 """,
                 (
-                    budget.get("id"),
-                    budget.get("power_plant_id"),
-                    budget.get("month"),
-                    budget.get("volume"),
-                    budget.get("revenue"),
-                    budget.get("avg_daily_volume"),
-                    budget.get("avg_daily_revenue"),
+                    combined_record["id"],
+                    combined_record["power_plant_id"],
+                    combined_record["month"],
+                    combined_record["volume"],
+                    combined_record["revenue_nok"],
+                    combined_record["revenue_eur"],
+                    combined_record["avg_daily_volume"],
+                    combined_record["avg_daily_revenue_nok"],
+                    combined_record["avg_daily_revenue_eur"],
                     datetime.utcnow().isoformat(),
                     datetime.utcnow().isoformat(),
                 ),

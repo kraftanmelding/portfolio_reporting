@@ -12,6 +12,7 @@ from .fetchers.market_prices import MarketPricesFetcher
 from .fetchers.om_data import OMDataFetcher
 from .fetchers.power_plants import PowerPlantsFetcher
 from .fetchers.production import ProductionFetcher
+from .fetchers.production_periods import ProductionPeriodsFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class SyncCoordinator:
         self.companies_fetcher = CompaniesFetcher(self.api_client)
         self.power_plants_fetcher = PowerPlantsFetcher(self.api_client)
         self.production_fetcher = ProductionFetcher(self.api_client)
+        self.production_periods_fetcher = ProductionPeriodsFetcher(self.api_client)
         self.market_prices_fetcher = MarketPricesFetcher(self.api_client)
         self.om_fetcher = OMDataFetcher(self.api_client)
         self.budgets_fetcher = BudgetsFetcher(self.api_client)
@@ -75,6 +77,12 @@ class SyncCoordinator:
             # Sync production data (requires power plants list)
             if self.config.get("data", {}).get("fetch_production", True):
                 stats["production"] = self._sync_production(
+                    mode, power_plants, start_date, end_date
+                )
+
+            # Sync production periods (hourly data, requires power plants list)
+            if self.config.get("data", {}).get("fetch_production_periods", True):
+                stats["production_periods"] = self._sync_production_periods(
                     mode, power_plants, start_date, end_date
                 )
 
@@ -229,6 +237,64 @@ class SyncCoordinator:
 
         except Exception as e:
             self.db_handler.update_sync_metadata("production", success=False, error_message=str(e))
+            raise
+
+    def _sync_production_periods(
+        self,
+        mode: str,
+        power_plants: list[dict[str, Any]],
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> int:
+        """Sync production periods data (hourly production).
+
+        Args:
+            mode: Sync mode
+            power_plants: List of power plant dictionaries
+            from_date: Start date filter
+            to_date: End date filter
+
+        Returns:
+            Number of records synced
+        """
+        logger.info("Syncing production periods data")
+
+        if not power_plants:
+            logger.warning("No power plants available, skipping production periods sync")
+            return 0
+
+        try:
+            # For incremental mode, use last sync time as from_date
+            if mode == "incremental" and not from_date:
+                last_sync = self.db_handler.get_last_sync_time("production_periods")
+                if last_sync:
+                    from_date = last_sync.split("T")[0]  # Convert to YYYY-MM-DD
+
+            production_periods_data = self.production_periods_fetcher.fetch_all_production_periods(
+                power_plants=power_plants,
+                timestamp_from=from_date,
+                timestamp_to=to_date,
+            )
+
+            # Get UUID to ID mapping from database (after power plants are inserted)
+            uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
+
+            for record in production_periods_data:
+                # Map power_plant_uuid to power_plant_id
+                if "power_plant_uuid" in record:
+                    plant_uuid = record["power_plant_uuid"]
+                    record["power_plant_id"] = uuid_to_id.get(plant_uuid)
+                    if not record["power_plant_id"]:
+                        logger.warning(f"Could not find database ID for UUID {plant_uuid}")
+
+            count = self.db_handler.upsert_production_periods(production_periods_data)
+            self.db_handler.update_sync_metadata("production_periods", success=True)
+            return count
+
+        except Exception as e:
+            self.db_handler.update_sync_metadata(
+                "production_periods", success=False, error_message=str(e)
+            )
             raise
 
     def _sync_market_prices(
