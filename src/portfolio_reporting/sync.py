@@ -59,6 +59,7 @@ class SyncCoordinator:
         try:
             self.db_handler.connect()
             self.db_handler.initialize_schema()
+            self.db_handler.check_write_access()
 
             # Get date range from config
             start_date = self.config.get("data", {}).get("start_date")
