@@ -18,7 +18,7 @@ class OMDataFetcher(BaseFetcher):
         end_date: str | None = None,
         power_plant_uuid: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Fetch downtime events.
+        """Fetch downtime events with pagination support.
 
         Args:
             start_date: Start date (YYYY-MM-DD format)
@@ -39,27 +39,45 @@ class OMDataFetcher(BaseFetcher):
         for chunk_start, chunk_end in date_chunks:
             try:
                 logger.debug(f"Fetching downtime events from {chunk_start} to {chunk_end}")
-                params = {}
-                if chunk_start:
-                    params["start_date"] = chunk_start
-                if chunk_end:
-                    params["end_date"] = chunk_end
-                if power_plant_uuid:
-                    params["power_plant_uuid"] = power_plant_uuid
 
-                response = self.api_client.get("/api/v2/downtime_events", params=params)
+                # Paginate through results (API default limit is 100, max is 1000)
+                offset = 0
+                limit = 1000  # Use maximum limit to minimize API calls
+                chunk_events = []
 
-                # The response might be a list or a dict with a 'data' key
-                if isinstance(response, list):
-                    events = response
-                elif isinstance(response, dict) and "data" in response:
-                    events = response["data"]
-                else:
-                    events = [response] if response else []
+                while True:
+                    params = {"limit": limit, "offset": offset}
+                    if chunk_start:
+                        params["start_date"] = chunk_start
+                    if chunk_end:
+                        params["end_date"] = chunk_end
+                    if power_plant_uuid:
+                        params["power_plant_uuid"] = power_plant_uuid
 
-                all_events.extend(events)
+                    response = self.api_client.get("/api/v2/downtime_events", params=params)
+
+                    # The response might be a list or a dict with a 'data' key
+                    if isinstance(response, list):
+                        events = response
+                    elif isinstance(response, dict) and "data" in response:
+                        events = response["data"]
+                    else:
+                        events = [response] if response else []
+
+                    chunk_events.extend(events)
+
+                    # If we got fewer events than the limit, we've fetched all pages
+                    if len(events) < limit:
+                        break
+
+                    offset += limit
+                    logger.debug(
+                        f"Fetched {len(events)} events, continuing pagination (offset: {offset})"
+                    )
+
+                all_events.extend(chunk_events)
                 logger.debug(
-                    f"Fetched {len(events)} events for period {chunk_start} to {chunk_end}"
+                    f"Fetched total of {len(chunk_events)} events for period {chunk_start} to {chunk_end}"
                 )
 
             except Exception as e:
@@ -388,6 +406,20 @@ class OMDataFetcher(BaseFetcher):
                 items = response["data"]
             else:
                 items = [response] if response else []
+
+            # Transform API fields to database schema
+            for item in items:
+                # API: responsible.name → DB: assigned_to
+                if "responsible" in item and item["responsible"]:
+                    item["assigned_to"] = item["responsible"].get("name")
+                else:
+                    item["assigned_to"] = None
+
+                # API: closed_on → DB: completed_at
+                item["completed_at"] = item.get("closed_on")
+
+                # API: component → DB: priority
+                item["priority"] = item.get("component")
 
             logger.debug(f"Fetched {len(items)} work items for {power_plant_uuid}")
             return items
