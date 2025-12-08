@@ -130,13 +130,17 @@ class SyncCoordinator:
     def _sync_companies(self, mode: str) -> int:
         """Sync companies data.
 
+        NOTE: Companies is a small reference table that always performs a full sync
+        regardless of mode. This is more efficient than tracking incremental changes
+        for small datasets.
+
         Args:
-            mode: Sync mode
+            mode: Sync mode (ignored - always performs full sync)
 
         Returns:
             Number of records synced
         """
-        logger.info("Syncing companies")
+        logger.info("Syncing companies (full sync)")
 
         try:
             companies = self.companies_fetcher.fetch()
@@ -151,13 +155,17 @@ class SyncCoordinator:
     def _sync_power_plants(self, mode: str) -> tuple:
         """Sync power plants data.
 
+        NOTE: Power plants is a small reference table that always performs a full sync
+        regardless of mode. This is more efficient than tracking incremental changes
+        for small datasets.
+
         Args:
-            mode: Sync mode
+            mode: Sync mode (ignored - always performs full sync)
 
         Returns:
             Tuple of (power_plants_list, count)
         """
-        logger.info("Syncing power plants")
+        logger.info("Syncing power plants (full sync)")
 
         try:
             power_plants = self.power_plants_fetcher.fetch()
