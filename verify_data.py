@@ -174,6 +174,23 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
 
         conn.close()
 
+    except sqlite3.OperationalError as e:
+        if "locked" in str(e).lower():
+            print("\n" + "=" * 80, file=sys.stderr)
+            print("ERROR: Database is locked by another process", file=sys.stderr)
+            print("=" * 80, file=sys.stderr)
+            print("\nCommon causes:", file=sys.stderr)
+            print("  - Power BI or other BI tool has the database open", file=sys.stderr)
+            print("  - A sync process is currently running", file=sys.stderr)
+            print("  - Database file is open in another application", file=sys.stderr)
+            print("\nSolution:", file=sys.stderr)
+            print("  1. Close Power BI and any other applications accessing the database", file=sys.stderr)
+            print("  2. Stop any running sync processes", file=sys.stderr)
+            print("  3. Try running this script again", file=sys.stderr)
+            print("\n" + "=" * 80, file=sys.stderr)
+        else:
+            print(f"Database error: {e}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
