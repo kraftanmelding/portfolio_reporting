@@ -12,10 +12,10 @@ class PowerPlantsFetcher(BaseFetcher):
     """Fetcher for power plant data from Kaia Solutions Portal API."""
 
     def fetch(self) -> list[dict[str, Any]]:
-        """Fetch all power plants.
+        """Fetch all power plants and transform to database schema.
 
         Returns:
-            List of power plant dictionaries
+            List of power plant dictionaries with fields mapped to database schema
         """
         logger.info("Fetching power plants from API")
 
@@ -31,8 +31,33 @@ class PowerPlantsFetcher(BaseFetcher):
             else:
                 power_plants = [response] if response else []
 
-            logger.info(f"Fetched {len(power_plants)} power plants")
-            return power_plants
+            # Transform API fields to database schema
+            transformed = []
+            for plant in power_plants:
+                transformed.append(
+                    {
+                        "id": plant.get("id"),
+                        "uuid": plant.get("uuid"),
+                        "name": plant.get("name"),
+                        "company_id": plant.get("company_id"),  # May need mapping from company data
+                        "power_plant_type": plant.get(
+                            "asset_class"
+                        ),  # API: asset_class → DB: power_plant_type
+                        "capacity_mw": plant.get(
+                            "installed_effect"
+                        ),  # API: installed_effect → DB: capacity_mw
+                        "latitude": plant.get("lat"),  # API: lat → DB: latitude
+                        "longitude": plant.get("lng"),  # API: lng → DB: longitude
+                        "commissioned_date": plant.get(
+                            "commissioning_date"
+                        ),  # API: commissioning_date
+                        "created_at": plant.get("created_at"),
+                        "updated_at": plant.get("updated_at"),
+                    }
+                )
+
+            logger.info(f"Fetched {len(transformed)} power plants")
+            return transformed
 
         except Exception as e:
             logger.error(f"Error fetching power plants: {e}")
