@@ -8,9 +8,11 @@ This tool automatically downloads data from your Kaia Solutions Portal and saves
 
 - 📊 **Companies** - Your company information
 - 🏭 **Power Plants** - All your power plant details
-- ⚡ **Production Data** - Daily production records
+- ⚡ **Production Data** - Daily and hourly production records
 - 💰 **Market Prices** - Electricity market prices by area
+- 📅 **Budgets** - Monthly production budgets
 - 🔧 **Downtime Events** - Maintenance and downtime tracking
+- ⏱️ **Downtime Days/Periods** - Daily and hourly downtime data
 - 📝 **Work Items** - O&M work items and tasks
 
 The data is saved to a SQLite database file (`data/portfolio_report.db`) that PowerBI can connect to directly.
@@ -143,8 +145,12 @@ The database contains these tables:
 | `companies` | Company information |
 | `power_plants` | Power plant details and metadata |
 | `production_days` | Daily production data per power plant |
+| `production_periods` | Hourly production data per power plant |
 | `market_prices` | Electricity market prices by timestamp and area |
+| `budgets` | Monthly production budgets per power plant |
 | `downtime_events` | Downtime and maintenance events |
+| `downtime_days` | Daily aggregated downtime data |
+| `downtime_periods` | Hourly downtime periods |
 | `work_items` | O&M work items and tasks |
 | `sync_metadata` | Information about when data was last synced |
 
@@ -305,26 +311,26 @@ For technical support or feature requests, contact the development team.
 
 ## Multi-Currency Support
 
-Production data is automatically fetched in both **NOK and EUR** currencies. The database stores separate records for each currency with the same production volume but different revenue calculations.
+Financial data is stored with both **NOK and EUR** values in separate columns. This allows easy currency comparison without filtering.
 
-### Production Data Fields
+### Tables with Multi-Currency Fields
 
-The `production_days` table includes:
-- `volume` - Production volume in MWh
-- `revenue` - Revenue in the specified currency
-- `currency` - Currency code (NOK or EUR)
-- `forecasted_volume` - Forecasted production
-- `cap_theoretical_volume` - Theoretical capacity production
-- `full_load_count` - Hours at full load
-- `no_load_count` - Hours at no load
-- `operational_count` - Hours operational
+| Table | NOK Field | EUR Field |
+|-------|-----------|-----------|
+| `production_days` | `revenue_nok` | `revenue_eur` |
+| `production_periods` | `revenue_nok` | `revenue_eur` |
+| `budgets` | `revenue_nok` | `revenue_eur` |
+| `downtime_days` | `cost_nok` | `cost_eur` |
+| `downtime_periods` | `cost_nok` | `cost_eur` |
+| `work_items` | `budget_cost_nok`, `elapsed_cost_nok`, `forecast_cost_nok` | `budget_cost_eur`, `elapsed_cost_eur`, `forecast_cost_eur` |
 
 ### In PowerBI
 
-You can filter by currency or compare revenues across currencies:
+You can directly use the currency-specific columns:
 
 ```DAX
-NOK Revenue = CALCULATE(SUM(production_days[revenue]), production_days[currency] = "NOK")
-EUR Revenue = CALCULATE(SUM(production_days[revenue]), production_days[currency] = "EUR")
+Total Revenue NOK = SUM(production_days[revenue_nok])
+Total Revenue EUR = SUM(production_days[revenue_eur])
+Total Downtime Cost NOK = SUM(downtime_days[cost_nok])
 ```
 
