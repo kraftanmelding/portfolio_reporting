@@ -61,6 +61,13 @@ class MarketPricesFetcher(BaseFetcher):
                 else:
                     prices = [response] if response else []
 
+                # Transform API fields to database schema
+                # API returns: nok_mwh, eur_mwh
+                # DB expects: price (using NOK as default currency)
+                for price_record in prices:
+                    price_record["price"] = price_record.get("nok_mwh")
+                    price_record["currency"] = "NOK"
+
                 all_prices.extend(prices)
                 logger.debug(
                     f"Fetched {len(prices)} records for period {chunk_start} to {chunk_end}"
