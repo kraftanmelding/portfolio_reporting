@@ -46,3 +46,6 @@ logs/*.log
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local test scripts (may contain credentials)
+local_tests/

@@ -80,7 +80,8 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                    MIN(date) as min_date,
                    MAX(date) as max_date,
                    SUM(volume) as total_volume,
-                   SUM(cost) as total_cost
+                   SUM(cost_nok) as total_cost_nok,
+                   SUM(cost_eur) as total_cost_eur
             FROM downtime_days
         """)
         downtime_days = cursor.fetchone()
@@ -89,8 +90,10 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             print(f"   └─ Date range: {downtime_days['min_date']} to {downtime_days['max_date']}")
             if downtime_days["total_volume"]:
                 print(f"   └─ Total lost volume: {downtime_days['total_volume']:,.0f} MWh")
-            if downtime_days["total_cost"]:
-                print(f"   └─ Total cost: {downtime_days['total_cost']:,.0f}")
+            if downtime_days["total_cost_nok"]:
+                print(f"   └─ Total cost NOK: {downtime_days['total_cost_nok']:,.0f}")
+            if downtime_days["total_cost_eur"]:
+                print(f"   └─ Total cost EUR: {downtime_days['total_cost_eur']:,.0f}")
 
         # Downtime periods
         cursor.execute("""
@@ -98,7 +101,8 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                    MIN(timestamp) as min_time,
                    MAX(timestamp) as max_time,
                    SUM(volume) as total_volume,
-                   SUM(cost) as total_cost
+                   SUM(cost_nok) as total_cost_nok,
+                   SUM(cost_eur) as total_cost_eur
             FROM downtime_periods
         """)
         downtime_periods = cursor.fetchone()
@@ -109,8 +113,10 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             )
             if downtime_periods["total_volume"]:
                 print(f"   └─ Total lost volume: {downtime_periods['total_volume']:,.0f} MWh")
-            if downtime_periods["total_cost"]:
-                print(f"   └─ Total cost: {downtime_periods['total_cost']:,.0f}")
+            if downtime_periods["total_cost_nok"]:
+                print(f"   └─ Total cost NOK: {downtime_periods['total_cost_nok']:,.0f}")
+            if downtime_periods["total_cost_eur"]:
+                print(f"   └─ Total cost EUR: {downtime_periods['total_cost_eur']:,.0f}")
 
         # Work items
         cursor.execute("""
@@ -132,7 +138,8 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                    MIN(month) as min_month,
                    MAX(month) as max_month,
                    SUM(volume) as total_volume,
-                   SUM(revenue) as total_revenue
+                   SUM(revenue_nok) as total_revenue_nok,
+                   SUM(revenue_eur) as total_revenue_eur
             FROM budgets
         """)
         budgets = cursor.fetchone()
@@ -141,8 +148,10 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             print(f"   └─ Month range: {budgets['min_month']} to {budgets['max_month']}")
             if budgets["total_volume"]:
                 print(f"   └─ Total budgeted volume: {budgets['total_volume']:,.0f} MWh")
-            if budgets["total_revenue"]:
-                print(f"   └─ Total budgeted revenue: {budgets['total_revenue']:,.0f}")
+            if budgets["total_revenue_nok"]:
+                print(f"   └─ Total budgeted revenue NOK: {budgets['total_revenue_nok']:,.0f}")
+            if budgets["total_revenue_eur"]:
+                print(f"   └─ Total budgeted revenue EUR: {budgets['total_revenue_eur']:,.0f}")
 
         # Sync metadata
         print()
