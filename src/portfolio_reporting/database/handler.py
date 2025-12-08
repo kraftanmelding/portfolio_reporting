@@ -48,6 +48,37 @@ class DatabaseHandler:
         self.conn.commit()
         logger.info("Database schema initialized successfully")
 
+    def check_write_access(self):
+        """Check if database is writable (not locked by another process).
+
+        Raises:
+            RuntimeError: If database is locked or not writable
+        """
+        if not self.conn:
+            raise RuntimeError("Database not connected")
+
+        try:
+            # Try to acquire an immediate exclusive lock
+            cursor = self.conn.cursor()
+            cursor.execute("BEGIN IMMEDIATE")
+            self.conn.commit()
+            logger.info("Database write access confirmed")
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower():
+                raise RuntimeError(
+                    "Database is locked by another process.\n\n"
+                    "Common causes:\n"
+                    "  - Power BI or other BI tool has the database open\n"
+                    "  - Another sync process is already running\n"
+                    "  - Database file is open in another application\n\n"
+                    "Solution:\n"
+                    "  1. Close Power BI and any other applications accessing the database\n"
+                    "  2. Stop any running sync processes\n"
+                    "  3. Try running the sync again\n"
+                ) from e
+            else:
+                raise RuntimeError(f"Database access error: {e}") from e
+
     def upsert_companies(self, companies: list[dict[str, Any]]) -> int:
         """Insert or update companies.
 
