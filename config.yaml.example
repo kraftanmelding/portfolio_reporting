@@ -2,34 +2,34 @@
 # Copy this file to config.yaml and fill in your credentials
 
 api:
-  base_url: "http://localhost:3000"       # Change to production URL when ready
-  api_key: "your-api-key-here"            # Get this from Kaia Solutions Portal admin
-  timeout: 30                             # Request timeout in seconds
-  retry_attempts: 3                       # Number of retry attempts for failed requests
+  base_url: "http://localhost:3000"                 # Change to production URL when ready
+  api_key: "your-api-key-here"                      # Get this from Kaia Solutions Portal admin
+  timeout: 30                                       # Request timeout in seconds
+  retry_attempts: 3                                 # Number of retry attempts for failed requests
 
 database:
-  path: "data/portfolio_report.db"        # Path to SQLite database file
+  path: "data/portfolio_report.db"                  # Path to SQLite database file
 
 logging:
-  level: "INFO"                           # Options: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"                                     # Options: DEBUG, INFO, WARNING, ERROR
   file: "logs/portfolio_reporting.log"
-  console: true                           # Also log to console
+  console: true                                     # Also log to console
 
 data:
   # Date range for historical data (leave empty for all data)
   # IMPORTANT: Use quotes around dates to prevent YAML from parsing them as date objects
-  start_date: "2024-01-01"                # Format: YYYY-MM-DD (quoted to prevent date parsing)
-  end_date: null                          # Format: YYYY-MM-DD (null = today)
+  start_date: "2024-01-01"                          # Format: YYYY-MM-DD (quoted to prevent date parsing)
+  end_date: null                                    # Format: YYYY-MM-DD (null = today)
 
   # Which data to fetch (set to false to skip)
   fetch_power_plants: true
   fetch_companies: true
   fetch_production: true
-  fetch_production_periods: false         # Hourly production data (large dataset, not needed for basic reports)
+  fetch_production_periods: false                   # Hourly production data (large dataset, not needed for basic reports)
   fetch_market_prices: true
   fetch_downtime_events: true
   fetch_downtime_days: true
-  fetch_downtime_periods: false           # Hourly downtime data (large dataset, not needed for basic reports)
+  fetch_downtime_periods: true                      # Hourly downtime data (large dataset, is needed for basic reports)
   fetch_work_items: true
   fetch_budgets: true
-  fetch_sensors: false                    # Set true if you need sensor data
+  fetch_sensors: false                              # Set true if you need sensor data
