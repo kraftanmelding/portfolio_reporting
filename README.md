@@ -79,16 +79,27 @@ Before running the sync, you need to configure your API connection:
 
 ### Full Sync (Download All Data)
 
-To download all data from the configured start date:
+To download all data from the configured start date with a fresh database:
+
+```bash
+python -m portfolio_reporting --mode full --fresh
+```
+
+This will:
+- Delete the existing database (if it exists)
+- Create a new database with the latest schema at `data/portfolio_report.db`
+- Download all data from your configured start date
+- Show a summary when complete
+
+**Why use `--fresh`?** When the database schema is updated in the code, using `--fresh` ensures the database structure matches the latest version. Without it, old columns/tables may cause errors.
+
+**Alternative (not recommended):** You can also run a full sync without `--fresh`, which will reuse the existing database:
 
 ```bash
 python -m portfolio_reporting --mode full
 ```
 
-This will:
-- Create/update the database at `data/portfolio_report.db`
-- Download all data from your configured start date
-- Show a summary when complete
+However, this may fail if the schema has changed since the database was last created.
 
 ### Incremental Sync (Update Only New Data)
 
@@ -203,8 +214,19 @@ pip install -r requirements.txt
 - Verify you have permission to access the power plants
 - Run with `--log-level DEBUG` for more details:
   ```bash
-  python -m portfolio_reporting --mode full --log-level DEBUG
+  python -m portfolio_reporting --mode full --fresh --log-level DEBUG
   ```
+
+### "No such column" or Schema Errors
+
+If you see errors like `no such column: asset_class_type` or similar:
+
+- The database schema is out of date with the code
+- **Solution:** Run a full sync with `--fresh` flag:
+  ```bash
+  python -m portfolio_reporting --mode full --fresh
+  ```
+- This will delete the old database and create a new one with the correct schema
 
 ### PowerBI Can't Find SQLite
 
@@ -216,6 +238,14 @@ PowerBI Desktop may need the SQLite connector installed:
 Alternatively, use the ODBC connector for SQLite.
 
 ## Advanced Options
+
+### Fresh Database (Recommended for Full Syncs)
+
+Delete and recreate the database to ensure schema is up-to-date:
+
+```bash
+python -m portfolio_reporting --mode full --fresh
+```
 
 ### Custom Configuration File
 
@@ -232,7 +262,7 @@ python -m portfolio_reporting --start-date 2024-01-01 --end-date 2024-12-31
 ### Verbose Logging
 
 ```bash
-python -m portfolio_reporting --mode full --log-level DEBUG
+python -m portfolio_reporting --mode full --fresh --log-level DEBUG
 ```
 
 ### Custom Database Location
@@ -286,9 +316,15 @@ If you encounter issues:
 - Run incremental sync every hour
 - Set PowerBI to refresh more frequently
 
-### For Historical Analysis
-- Run full sync once per month to ensure data consistency
+### For Historical Analysis or Schema Updates
+- Run full sync with `--fresh` flag once per month to ensure data consistency
+- Use `--fresh` flag whenever code is updated to ensure schema is current
 - Use incremental sync for daily updates in between
+
+**Example monthly refresh:**
+```bash
+python -m portfolio_reporting --mode full --fresh
+```
 
 ## Security Notes
 
