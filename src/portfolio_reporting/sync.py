@@ -1,7 +1,9 @@
 """Sync coordinator for data synchronization."""
 
 import logging
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from .api.client import APIClient
@@ -44,11 +46,12 @@ class SyncCoordinator:
         self.om_fetcher = OMDataFetcher(self.api_client)
         self.budgets_fetcher = BudgetsFetcher(self.api_client)
 
-    def sync_all(self, mode: str = "full") -> dict[str, int]:
+    def sync_all(self, mode: str = "full", fresh: bool = False) -> dict[str, int]:
         """Sync all data from API to database.
 
         Args:
             mode: Sync mode ('full' or 'incremental')
+            fresh: If True, delete existing database before sync (ensures clean schema)
 
         Returns:
             Dictionary with counts of synced records by type
@@ -57,6 +60,16 @@ class SyncCoordinator:
         stats = {}
 
         try:
+            # Delete database if fresh flag is set
+            if fresh:
+                db_path = Path(self.config["database"]["path"])
+                if db_path.exists():
+                    logger.info(f"Deleting existing database: {db_path}")
+                    os.remove(db_path)
+                    logger.info("Database deleted successfully")
+                else:
+                    logger.info(f"Database does not exist, creating new: {db_path}")
+
             self.db_handler.connect()
             self.db_handler.initialize_schema()
             self.db_handler.check_write_access()
