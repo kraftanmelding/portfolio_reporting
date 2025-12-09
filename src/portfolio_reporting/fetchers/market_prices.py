@@ -63,10 +63,10 @@ class MarketPricesFetcher(BaseFetcher):
 
                 # Transform API fields to database schema
                 # API returns: nok_mwh, eur_mwh
-                # DB expects: price (using NOK as default currency)
+                # DB expects: price_nok, price_eur
                 for price_record in prices:
-                    price_record["price"] = price_record.get("nok_mwh")
-                    price_record["currency"] = "NOK"
+                    price_record["price_nok"] = price_record.get("nok_mwh")
+                    price_record["price_eur"] = price_record.get("eur_mwh")
 
                 all_prices.extend(prices)
                 logger.debug(
