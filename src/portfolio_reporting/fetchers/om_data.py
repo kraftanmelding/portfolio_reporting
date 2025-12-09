@@ -418,8 +418,8 @@ class OMDataFetcher(BaseFetcher):
                 # API: closed_on → DB: completed_at
                 item["completed_at"] = item.get("closed_on")
 
-                # API: component → DB: priority
-                item["priority"] = item.get("component")
+                # API: component → DB: component
+                # (keep component as-is, don't map to priority)
 
             logger.debug(f"Fetched {len(items)} work items for {power_plant_uuid}")
             return items

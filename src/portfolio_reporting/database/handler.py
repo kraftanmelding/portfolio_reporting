@@ -553,6 +553,8 @@ class DatabaseHandler:
                     "downtime_event_id": record.get("downtime_event_id"),
                     "timestamp": record.get("timestamp"),
                     "reason": record.get("reason"),
+                    "component": record.get("component"),
+                    "hours": record.get("hours"),
                     "volume": record.get("volume"),
                     "cost_nok": None,
                     "cost_eur": None,
@@ -573,12 +575,14 @@ class DatabaseHandler:
                 """
                 INSERT INTO downtime_periods (
                     id, power_plant_id, downtime_event_id, timestamp, reason,
-                    volume, cost_nok, cost_eur, created_at, updated_at
+                    component, hours, volume, cost_nok, cost_eur, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(power_plant_id, timestamp) DO UPDATE SET
                     downtime_event_id = excluded.downtime_event_id,
                     reason = excluded.reason,
+                    component = excluded.component,
+                    hours = excluded.hours,
                     volume = excluded.volume,
                     cost_nok = excluded.cost_nok,
                     cost_eur = excluded.cost_eur,
@@ -590,6 +594,8 @@ class DatabaseHandler:
                     combined_record["downtime_event_id"],
                     combined_record["timestamp"],
                     combined_record["reason"],
+                    combined_record["component"],
+                    combined_record["hours"],
                     combined_record["volume"],
                     combined_record["cost_nok"],
                     combined_record["cost_eur"],
@@ -635,6 +641,7 @@ class DatabaseHandler:
                     "description": record.get("description"),
                     "status": record.get("status"),
                     "priority": record.get("priority"),
+                    "component": record.get("component"),
                     "assigned_to": record.get("assigned_to"),
                     "due_date": record.get("due_date"),
                     "completed_at": record.get("completed_at"),
@@ -666,16 +673,17 @@ class DatabaseHandler:
                 """
                 INSERT INTO work_items (
                     id, power_plant_id, title, description, status,
-                    priority, assigned_to, due_date, completed_at,
+                    priority, component, assigned_to, due_date, completed_at,
                     budget_cost_nok, budget_cost_eur, elapsed_cost_nok, elapsed_cost_eur,
                     forecast_cost_nok, forecast_cost_eur, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     title = excluded.title,
                     description = excluded.description,
                     status = excluded.status,
                     priority = excluded.priority,
+                    component = excluded.component,
                     assigned_to = excluded.assigned_to,
                     due_date = excluded.due_date,
                     completed_at = excluded.completed_at,
@@ -694,6 +702,7 @@ class DatabaseHandler:
                     combined_record["description"],
                     combined_record["status"],
                     combined_record["priority"],
+                    combined_record["component"],
                     combined_record["assigned_to"],
                     combined_record["due_date"],
                     combined_record["completed_at"],
