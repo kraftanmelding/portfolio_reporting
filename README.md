@@ -26,7 +26,9 @@ You need:
 
 ## Installation
 
-### Option 1: Using pip (Recommended)
+### Option 1: Using pip with Editable Install (Recommended)
+
+This allows you to update the code and have changes immediately available:
 
 1. Open a terminal/command prompt
 2. Navigate to this directory:
@@ -34,12 +36,28 @@ You need:
    cd portfolio_reporting
    ```
 
-3. Install the required packages:
+3. Install in editable mode:
    ```bash
-   pip install -r requirements.txt
+   pip install -e .
    ```
 
-### Option 2: Using Poetry
+   This will:
+   - Install all required dependencies
+   - Link the source code so Python uses your local files
+   - Allow you to pull updates without reinstalling
+
+### Option 2: Using pip (Basic Install)
+
+If you don't need to update frequently:
+
+```bash
+cd portfolio_reporting
+pip install -r requirements.txt
+```
+
+**Note:** If you use this method, you'll need to set `PYTHONPATH=src` when running commands.
+
+### Option 3: Using Poetry
 
 If you have Poetry installed:
 
@@ -74,6 +92,62 @@ Before running the sync, you need to configure your API connection:
    ```
 
 3. **Important:** Replace `your_api_key_here` with your actual API key from Kaia Solutions Portal
+
+## Updating to the Latest Version
+
+When code updates are available, follow these steps to get the latest version:
+
+### Step 1: Pull Latest Changes from Git
+
+```bash
+# Navigate to the project directory
+cd portfolio_reporting
+
+# Pull the latest changes
+git pull origin main
+```
+
+**Windows PowerShell:**
+```powershell
+cd portfolio_reporting
+git pull origin main
+```
+
+### Step 2: Update Dependencies (if needed)
+
+If you installed with `pip install -e .` (recommended), the changes are automatically available! No reinstall needed.
+
+If you used `pip install -r requirements.txt`, you may need to reinstall if dependencies changed:
+```bash
+pip install -r requirements.txt
+```
+
+### Step 3: Run Fresh Sync After Schema Updates
+
+If the update includes database schema changes (like new columns or renamed fields), run a fresh sync:
+
+```bash
+# Linux/Mac
+python -m portfolio_reporting --mode full --fresh
+
+# Windows
+python -m portfolio_reporting --mode full --fresh
+```
+
+The `--fresh` flag ensures your database structure matches the latest code.
+
+### Common Update Issues
+
+**Issue: "unrecognized arguments" error**
+- Solution: Reinstall with `pip install -e .` to ensure latest code is used
+
+**Issue: "no such column" database errors**
+- Solution: Run sync with `--fresh` flag to rebuild database with new schema
+
+**Issue: Changes not taking effect**
+- Check if package is installed: `pip list | grep portfolio`
+- If installed without `-e`, reinstall with `pip install -e .`
+- Clear Python cache: Delete all `__pycache__` folders
 
 ## How to Run
 
@@ -191,10 +265,28 @@ Add to your crontab (`crontab -e`):
 
 ### "Module not found" Error
 
-Make sure you installed the requirements:
+Make sure you installed the package or requirements:
 ```bash
+# Option 1: Editable install (recommended)
+pip install -e .
+
+# Option 2: Requirements only
 pip install -r requirements.txt
 ```
+
+### Code Updates Not Taking Effect
+
+If you pulled new code but nothing changed:
+
+**Cause:** Python is using an installed package version instead of your updated source files.
+
+**Solution:**
+```bash
+# Install in editable mode so changes are immediate
+pip install -e .
+```
+
+After this, any code changes will be used immediately without reinstalling.
 
 ### "Connection refused" or "Timeout" Errors
 
