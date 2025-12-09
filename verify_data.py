@@ -154,6 +154,22 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if downtime_days["total_cost_eur"]:
                 print(f"   └─ Total cost EUR: {downtime_days['total_cost_eur']:,.0f}")
 
+            # Top reasons
+            cursor.execute("""
+                SELECT reason, COUNT(*) as count, SUM(volume) as total_volume
+                FROM downtime_days
+                WHERE reason IS NOT NULL
+                GROUP BY reason
+                ORDER BY count DESC
+                LIMIT 5
+            """)
+            reasons = cursor.fetchall()
+            if reasons:
+                print(f"   └─ Top reasons:")
+                for row in reasons:
+                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row['total_volume'] else ""
+                    print(f"      • {row['reason']}: {row['count']}{vol_str}")
+
         # Downtime periods
         cursor.execute("""
             SELECT COUNT(*) as count,
@@ -177,6 +193,22 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if downtime_periods["total_cost_eur"]:
                 print(f"   └─ Total cost EUR: {downtime_periods['total_cost_eur']:,.0f}")
 
+            # Top components
+            cursor.execute("""
+                SELECT component, COUNT(*) as count, SUM(hours) as total_hours
+                FROM downtime_periods
+                WHERE component IS NOT NULL
+                GROUP BY component
+                ORDER BY count DESC
+                LIMIT 5
+            """)
+            components = cursor.fetchall()
+            if components:
+                print(f"   └─ Top components:")
+                for row in components:
+                    hours_str = f" ({row['total_hours']:,.0f}h)" if row['total_hours'] else ""
+                    print(f"      • {row['component']}: {row['count']}{hours_str}")
+
         # Work items
         cursor.execute("""
             SELECT COUNT(*) as count,
@@ -190,6 +222,21 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         if work_items["count"] > 0:
             print(f"   └─ Created range: {work_items['min_time']} to {work_items['max_time']}")
             print(f"   └─ Statuses: {work_items['statuses']}")
+
+            # Component breakdown
+            cursor.execute("""
+                SELECT component, COUNT(*) as count
+                FROM work_items
+                WHERE component IS NOT NULL
+                GROUP BY component
+                ORDER BY count DESC
+                LIMIT 10
+            """)
+            components = cursor.fetchall()
+            if components:
+                print(f"   └─ Top components:")
+                for row in components:
+                    print(f"      • {row['component']}: {row['count']}")
 
         # Budgets
         cursor.execute("""
