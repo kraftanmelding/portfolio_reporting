@@ -40,9 +40,9 @@ class PowerPlantsFetcher(BaseFetcher):
                         "uuid": plant.get("uuid"),
                         "name": plant.get("name"),
                         "company_id": plant.get("company_id"),  # May need mapping from company data
-                        "power_plant_type": plant.get(
+                        "asset_class_type": plant.get(
                             "asset_class"
-                        ),  # API: asset_class → DB: power_plant_type
+                        ),  # API: asset_class → DB: asset_class_type
                         "capacity_mw": plant.get(
                             "installed_effect"
                         ),  # API: installed_effect → DB: capacity_mw

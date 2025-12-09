@@ -137,7 +137,7 @@ class DatabaseHandler:
             cursor.execute(
                 """
                 INSERT INTO power_plants (
-                    id, uuid, name, company_id, power_plant_type,
+                    id, uuid, name, company_id, asset_class_type,
                     capacity_mw, latitude, longitude, commissioned_date,
                     created_at, updated_at
                 )
@@ -146,7 +146,7 @@ class DatabaseHandler:
                     id = excluded.id,
                     name = excluded.name,
                     company_id = excluded.company_id,
-                    power_plant_type = excluded.power_plant_type,
+                    asset_class_type = excluded.asset_class_type,
                     capacity_mw = excluded.capacity_mw,
                     latitude = excluded.latitude,
                     longitude = excluded.longitude,
@@ -158,7 +158,7 @@ class DatabaseHandler:
                     plant.get("uuid"),
                     plant.get("name"),
                     plant.get("company_id"),
-                    plant.get("power_plant_type"),
+                    plant.get("asset_class_type"),
                     plant.get("capacity_mw"),
                     plant.get("latitude"),
                     plant.get("longitude"),
@@ -369,20 +369,20 @@ class DatabaseHandler:
             cursor.execute(
                 """
                 INSERT INTO market_prices (
-                    price_area, timestamp, price, currency,
+                    price_area, timestamp, price_nok, price_eur,
                     created_at, updated_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(price_area, timestamp) DO UPDATE SET
-                    price = excluded.price,
-                    currency = excluded.currency,
+                    price_nok = excluded.price_nok,
+                    price_eur = excluded.price_eur,
                     updated_at = excluded.updated_at
                 """,
                 (
                     price.get("price_area"),
                     price.get("timestamp"),
-                    price.get("price"),
-                    price.get("currency", "NOK"),
+                    price.get("price_nok"),
+                    price.get("price_eur"),
                     datetime.utcnow().isoformat(),
                     datetime.utcnow().isoformat(),
                 ),
