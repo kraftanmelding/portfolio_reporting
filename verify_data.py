@@ -23,9 +23,60 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         print(f"📊 Companies: {companies_count}")
 
         # Power plants
-        cursor.execute("SELECT COUNT(*) as count FROM power_plants")
-        plants_count = cursor.fetchone()["count"]
-        print(f"🏭 Power plants: {plants_count}")
+        cursor.execute("""
+            SELECT COUNT(*) as count,
+                   COUNT(DISTINCT company_id) as companies,
+                   SUM(capacity_mw) as total_capacity,
+                   AVG(capacity_mw) as avg_capacity,
+                   MIN(commissioned_date) as oldest_commissioned,
+                   MAX(commissioned_date) as newest_commissioned
+            FROM power_plants
+        """)
+        plants = cursor.fetchone()
+        print(f"🏭 Power plants: {plants['count']}")
+        if plants["count"] > 0:
+            print(f"   └─ Companies: {plants['companies']}")
+            if plants["total_capacity"]:
+                print(f"   └─ Total capacity: {plants['total_capacity']:,.1f} MW (avg: {plants['avg_capacity']:,.1f} MW)")
+            if plants["oldest_commissioned"]:
+                print(f"   └─ Commissioned: {plants['oldest_commissioned']} to {plants['newest_commissioned']}")
+
+            # Breakdown by asset class type
+            cursor.execute("""
+                SELECT asset_class_type, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                FROM power_plants
+                GROUP BY asset_class_type
+                ORDER BY count DESC
+            """)
+            print(f"   └─ By asset class:")
+            for row in cursor:
+                capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                print(f"      • {row['asset_class_type']}: {row['count']}{capacity_str}")
+
+            # Data quality check
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) - COUNT(capacity_mw) as missing_capacity,
+                    COUNT(*) - COUNT(commissioned_date) as missing_commissioned,
+                    COUNT(*) - COUNT(asset_class_type) as missing_type,
+                    COUNT(*) - COUNT(latitude) as missing_lat,
+                    COUNT(*) - COUNT(longitude) as missing_lng
+                FROM power_plants
+            """)
+            quality = cursor.fetchone()
+            if quality["missing_capacity"] > 0 or quality["missing_commissioned"] > 0 or quality["missing_type"] > 0 or quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
+                print(f"   └─ Missing metadata:")
+                if quality["missing_capacity"] > 0:
+                    print(f"      • Capacity: {quality['missing_capacity']} plants")
+                if quality["missing_commissioned"] > 0:
+                    print(f"      • Commissioned date: {quality['missing_commissioned']} plants")
+                if quality["missing_type"] > 0:
+                    print(f"      • Asset class type: {quality['missing_type']} plants")
+                if quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
+                    print(f"      • Coordinates: {max(quality['missing_lat'], quality['missing_lng'])} plants")
+            else:
+                print(f"   └─ ✓ All plants have complete metadata")
 
         # Production days
         cursor.execute("""
@@ -53,7 +104,11 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             SELECT COUNT(*) as count,
                    MIN(timestamp) as min_time,
                    MAX(timestamp) as max_time,
-                   COUNT(DISTINCT price_area) as areas
+                   COUNT(DISTINCT price_area) as areas,
+                   SUM(price_nok) as total_price_nok,
+                   SUM(price_eur) as total_price_eur,
+                   AVG(price_nok) as avg_price_nok,
+                   AVG(price_eur) as avg_price_eur
             FROM market_prices
         """)
         prices = cursor.fetchone()
@@ -61,6 +116,10 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         if prices["count"] > 0:
             print(f"   └─ Time range: {prices['min_time']} to {prices['max_time']}")
             print(f"   └─ Price areas: {prices['areas']}")
+            if prices["total_price_nok"]:
+                print(f"   └─ Total price NOK: {prices['total_price_nok']:,.0f} (avg: {prices['avg_price_nok']:,.2f})")
+            if prices["total_price_eur"]:
+                print(f"   └─ Total price EUR: {prices['total_price_eur']:,.0f} (avg: {prices['avg_price_eur']:,.2f})")
 
         # Downtime events
         cursor.execute("""
