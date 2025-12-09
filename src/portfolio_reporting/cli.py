@@ -18,7 +18,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Full refresh (fetch all data)
+  # Full refresh with fresh database (recommended)
+  python -m portfolio_reporting --mode full --fresh
+
+  # Full refresh (fetch all data, reuse existing database)
   python -m portfolio_reporting --mode full
 
   # Incremental update (fetch only new data since last sync)
@@ -37,6 +40,12 @@ Examples:
         choices=["full", "incremental"],
         default="full",
         help="Sync mode: 'full' replaces all data, 'incremental' fetches only new data (default: full)",
+    )
+
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Delete existing database before sync (recommended for full syncs to ensure schema is up-to-date)",
     )
 
     parser.add_argument(
@@ -84,13 +93,14 @@ Examples:
         logger.info("=" * 80)
         logger.info("Portfolio Reporting - Data Sync Started")
         logger.info(f"Mode: {args.mode}")
+        logger.info(f"Fresh database: {args.fresh}")
         logger.info(f"Config: {args.config}")
         logger.info(f"Database: {config['database']['path']}")
         logger.info("=" * 80)
 
         # Run sync
         coordinator = SyncCoordinator(config)
-        stats = coordinator.sync_all(mode=args.mode)
+        stats = coordinator.sync_all(mode=args.mode, fresh=args.fresh)
 
         # Print summary
         logger.info("=" * 80)
