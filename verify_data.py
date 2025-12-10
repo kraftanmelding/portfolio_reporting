@@ -53,6 +53,36 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                 capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
                 print(f"      • {row['asset_class_type']}: {row['count']}{capacity_str}")
 
+            # Breakdown by price area
+            cursor.execute("""
+                SELECT price_area, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                FROM power_plants
+                WHERE price_area IS NOT NULL
+                GROUP BY price_area
+                ORDER BY count DESC
+            """)
+            price_areas = cursor.fetchall()
+            if price_areas:
+                print(f"   └─ By price area:")
+                for row in price_areas:
+                    capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                    print(f"      • {row['price_area']}: {row['count']}{capacity_str}")
+
+            # Breakdown by country
+            cursor.execute("""
+                SELECT country, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                FROM power_plants
+                WHERE country IS NOT NULL
+                GROUP BY country
+                ORDER BY count DESC
+            """)
+            countries = cursor.fetchall()
+            if countries:
+                print(f"   └─ By country:")
+                for row in countries:
+                    capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                    print(f"      • {row['country']}: {row['count']}{capacity_str}")
+
             # Data quality check
             cursor.execute("""
                 SELECT
@@ -60,12 +90,13 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                     COUNT(*) - COUNT(capacity_mw) as missing_capacity,
                     COUNT(*) - COUNT(commissioned_date) as missing_commissioned,
                     COUNT(*) - COUNT(asset_class_type) as missing_type,
+                    COUNT(*) - COUNT(country) as missing_country,
                     COUNT(*) - COUNT(latitude) as missing_lat,
                     COUNT(*) - COUNT(longitude) as missing_lng
                 FROM power_plants
             """)
             quality = cursor.fetchone()
-            if quality["missing_capacity"] > 0 or quality["missing_commissioned"] > 0 or quality["missing_type"] > 0 or quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
+            if quality["missing_capacity"] > 0 or quality["missing_commissioned"] > 0 or quality["missing_type"] > 0 or quality["missing_country"] > 0 or quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
                 print(f"   └─ Missing metadata:")
                 if quality["missing_capacity"] > 0:
                     print(f"      • Capacity: {quality['missing_capacity']} plants")
@@ -73,6 +104,8 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                     print(f"      • Commissioned date: {quality['missing_commissioned']} plants")
                 if quality["missing_type"] > 0:
                     print(f"      • Asset class type: {quality['missing_type']} plants")
+                if quality["missing_country"] > 0:
+                    print(f"      • Country: {quality['missing_country']} plants")
                 if quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
                     print(f"      • Coordinates: {max(quality['missing_lat'], quality['missing_lng'])} plants")
             else:
@@ -125,13 +158,69 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         cursor.execute("""
             SELECT COUNT(*) as count,
                    MIN(start_time) as min_time,
-                   MAX(start_time) as max_time
+                   MAX(start_time) as max_time,
+                   SUM(volume) as total_volume,
+                   SUM(volume_should_have_been) as total_volume_should_have_been,
+                   AVG(estimated_hourly_volume) as avg_estimated_hourly_volume,
+                   SUM(cost_nok) as total_cost_nok,
+                   SUM(cost_eur) as total_cost_eur,
+                   COUNT(*) FILTER (WHERE verified = 1) as verified_count,
+                   COUNT(*) FILTER (WHERE insurance = 1) as insurance_count,
+                   COUNT(*) FILTER (WHERE volume_set_manually = 1) as manual_volume_count
             FROM downtime_events
         """)
         downtime = cursor.fetchone()
         print(f"🔧 Downtime events: {downtime['count']}")
         if downtime["count"] > 0 and downtime["min_time"]:
             print(f"   └─ Time range: {downtime['min_time']} to {downtime['max_time']}")
+            if downtime["total_volume"]:
+                print(f"   └─ Total lost volume: {downtime['total_volume']:,.0f} MWh")
+            if downtime["total_volume_should_have_been"]:
+                print(f"   └─ Total expected volume: {downtime['total_volume_should_have_been']:,.0f} MWh")
+            if downtime["avg_estimated_hourly_volume"]:
+                print(f"   └─ Avg estimated hourly volume: {downtime['avg_estimated_hourly_volume']:,.1f} MWh/h")
+            if downtime["total_cost_nok"]:
+                print(f"   └─ Total cost NOK: {downtime['total_cost_nok']:,.0f}")
+            if downtime["total_cost_eur"]:
+                print(f"   └─ Total cost EUR: {downtime['total_cost_eur']:,.0f}")
+            if downtime["verified_count"]:
+                print(f"   └─ Verified events: {downtime['verified_count']} ({downtime['verified_count']/downtime['count']*100:.1f}%)")
+            if downtime["insurance_count"]:
+                print(f"   └─ Insurance covered: {downtime['insurance_count']} ({downtime['insurance_count']/downtime['count']*100:.1f}%)")
+            if downtime["manual_volume_count"]:
+                print(f"   └─ Manual volume set: {downtime['manual_volume_count']} ({downtime['manual_volume_count']/downtime['count']*100:.1f}%)")
+
+            # Top reasons
+            cursor.execute("""
+                SELECT reason, COUNT(*) as count, SUM(volume) as total_volume
+                FROM downtime_events
+                WHERE reason IS NOT NULL
+                GROUP BY reason
+                ORDER BY count DESC
+                LIMIT 5
+            """)
+            reasons = cursor.fetchall()
+            if reasons:
+                print(f"   └─ Top reasons:")
+                for row in reasons:
+                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row['total_volume'] else ""
+                    print(f"      • {row['reason']}: {row['count']}{vol_str}")
+
+            # Top components
+            cursor.execute("""
+                SELECT component, COUNT(*) as count, SUM(volume) as total_volume
+                FROM downtime_events
+                WHERE component IS NOT NULL
+                GROUP BY component
+                ORDER BY count DESC
+                LIMIT 5
+            """)
+            components = cursor.fetchall()
+            if components:
+                print(f"   └─ Top components:")
+                for row in components:
+                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row['total_volume'] else ""
+                    print(f"      • {row['component']}: {row['count']}{vol_str}")
 
         # Downtime days
         cursor.execute("""
