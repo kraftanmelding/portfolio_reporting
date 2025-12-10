@@ -138,16 +138,18 @@ class DatabaseHandler:
                 """
                 INSERT INTO power_plants (
                     id, uuid, name, company_id, asset_class_type,
-                    capacity_mw, latitude, longitude, commissioned_date,
+                    capacity_mw, price_area, country, latitude, longitude, commissioned_date,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     id = excluded.id,
                     name = excluded.name,
                     company_id = excluded.company_id,
                     asset_class_type = excluded.asset_class_type,
                     capacity_mw = excluded.capacity_mw,
+                    price_area = excluded.price_area,
+                    country = excluded.country,
                     latitude = excluded.latitude,
                     longitude = excluded.longitude,
                     commissioned_date = excluded.commissioned_date,
@@ -160,6 +162,8 @@ class DatabaseHandler:
                     plant.get("company_id"),
                     plant.get("asset_class_type"),
                     plant.get("capacity_mw"),
+                    plant.get("price_area"),
+                    plant.get("country"),
                     plant.get("latitude"),
                     plant.get("longitude"),
                     plant.get("commissioned_date"),
@@ -396,6 +400,9 @@ class DatabaseHandler:
     def upsert_downtime_events(self, events: list[dict[str, Any]]) -> int:
         """Insert or update downtime events.
 
+        Groups records by event ID and combines NOK/EUR costs into single records
+        with cost_nok and cost_eur columns.
+
         Args:
             events: List of downtime event dictionaries
 
@@ -405,36 +412,102 @@ class DatabaseHandler:
         if not self.conn:
             raise RuntimeError("Database not connected")
 
+        # Group by event ID and combine currencies
+        grouped: dict[int, dict[str, Any]] = {}
+
+        for record in events:
+            event_id = record.get("id")
+            currency = record.get("currency", "NOK")
+
+            if event_id not in grouped:
+                # Initialize with base data (non-currency specific fields)
+                # Map API field names to database field names
+                grouped[event_id] = {
+                    "id": event_id,
+                    "power_plant_id": record.get("power_plant_id"),
+                    "start_time": record.get("starts_at"),  # API: starts_at → DB: start_time
+                    "end_time": record.get("ends_at"),  # API: ends_at → DB: end_time
+                    "duration_hours": record.get("hour_count"),  # API: hour_count → DB: duration_hours
+                    "reason": record.get("reason"),
+                    "reason_humanized": record.get("reason_humanized"),
+                    "component": record.get("component"),
+                    "component_humanized": record.get("component_humanized"),
+                    "comment": record.get("comment"),
+                    "event_type": record.get("event_type"),  # Optional, may not be in API
+                    "volume": record.get("volume"),
+                    "volume_set_manually": 1 if record.get("volume_set_manually") else 0,
+                    "volume_should_have_been": record.get("volume_should_have_been"),
+                    "estimated_hourly_volume": record.get("estimated_hourly_volume"),
+                    "cost_nok": None,
+                    "cost_eur": None,
+                    "lost_production_kwh": record.get("lost_production_kwh"),  # Keep for backward compatibility
+                    "verified": 1 if record.get("verified") else 0,  # Convert boolean to integer
+                    "insurance": 1 if record.get("insurance") else 0,
+                    "created_at": record.get("created_at"),
+                }
+
+            # Add currency-specific cost
+            if currency == "NOK":
+                grouped[event_id]["cost_nok"] = record.get("cost")
+            elif currency == "EUR":
+                grouped[event_id]["cost_eur"] = record.get("cost")
+
         cursor = self.conn.cursor()
         count = 0
 
-        for event in events:
+        for combined_record in grouped.values():
             cursor.execute(
                 """
                 INSERT INTO downtime_events (
                     id, power_plant_id, start_time, end_time, duration_hours,
-                    reason, event_type, lost_production_kwh,
-                    created_at, updated_at
+                    reason, reason_humanized, component, component_humanized, comment,
+                    event_type, volume, volume_set_manually, volume_should_have_been,
+                    estimated_hourly_volume, cost_nok, cost_eur, lost_production_kwh,
+                    verified, insurance, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     end_time = excluded.end_time,
                     duration_hours = excluded.duration_hours,
                     reason = excluded.reason,
+                    reason_humanized = excluded.reason_humanized,
+                    component = excluded.component,
+                    component_humanized = excluded.component_humanized,
+                    comment = excluded.comment,
                     event_type = excluded.event_type,
+                    volume = excluded.volume,
+                    volume_set_manually = excluded.volume_set_manually,
+                    volume_should_have_been = excluded.volume_should_have_been,
+                    estimated_hourly_volume = excluded.estimated_hourly_volume,
+                    cost_nok = excluded.cost_nok,
+                    cost_eur = excluded.cost_eur,
                     lost_production_kwh = excluded.lost_production_kwh,
+                    verified = excluded.verified,
+                    insurance = excluded.insurance,
                     updated_at = excluded.updated_at
                 """,
                 (
-                    event.get("id"),
-                    event.get("power_plant_id"),
-                    event.get("start_time"),
-                    event.get("end_time"),
-                    event.get("duration_hours"),
-                    event.get("reason"),
-                    event.get("event_type"),
-                    event.get("lost_production_kwh"),
-                    event.get("created_at"),
+                    combined_record["id"],
+                    combined_record["power_plant_id"],
+                    combined_record["start_time"],
+                    combined_record["end_time"],
+                    combined_record["duration_hours"],
+                    combined_record["reason"],
+                    combined_record["reason_humanized"],
+                    combined_record["component"],
+                    combined_record["component_humanized"],
+                    combined_record["comment"],
+                    combined_record["event_type"],
+                    combined_record["volume"],
+                    combined_record["volume_set_manually"],
+                    combined_record["volume_should_have_been"],
+                    combined_record["estimated_hourly_volume"],
+                    combined_record["cost_nok"],
+                    combined_record["cost_eur"],
+                    combined_record["lost_production_kwh"],
+                    combined_record["verified"],
+                    combined_record["insurance"],
+                    combined_record["created_at"],
                     datetime.utcnow().isoformat(),
                 ),
             )
