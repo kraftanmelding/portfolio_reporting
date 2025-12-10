@@ -34,6 +34,14 @@ class PowerPlantsFetcher(BaseFetcher):
             # Transform API fields to database schema
             transformed = []
             for plant in power_plants:
+                # Handle country field - may be a dict with name/code or a simple string
+                country_value = plant.get("country")
+                if isinstance(country_value, dict):
+                    # Use country code if available, otherwise name
+                    country = country_value.get("code") or country_value.get("name")
+                else:
+                    country = country_value
+
                 transformed.append(
                     {
                         "id": plant.get("id"),
@@ -47,7 +55,7 @@ class PowerPlantsFetcher(BaseFetcher):
                             "installed_effect"
                         ),  # API: installed_effect → DB: capacity_mw
                         "price_area": plant.get("price_area"),  # API: price_area → DB: price_area
-                        "country": plant.get("country"),  # API: country → DB: country
+                        "country": country,  # Extract string from dict if needed
                         "latitude": plant.get("lat"),  # API: lat → DB: latitude
                         "longitude": plant.get("lng"),  # API: lng → DB: longitude
                         "commissioned_date": plant.get(
