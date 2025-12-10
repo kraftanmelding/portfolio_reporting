@@ -238,15 +238,17 @@ class SyncCoordinator:
                 logger.debug(f"Sample production record keys: {production_data[0].keys()}")
 
             for record in production_data:
-                # Map power_plant_uuid to power_plant_id
-                if "power_plant_uuid" in record:
-                    plant_uuid = record["power_plant_uuid"]
-                    record["power_plant_id"] = uuid_to_id.get(plant_uuid)
-                    if not record["power_plant_id"]:
-                        logger.warning(f"Could not find database ID for UUID {plant_uuid}")
-                # Try other possible field names
-                elif "power_plant" in record and isinstance(record["power_plant"], dict):
-                    plant_uuid = record["power_plant"].get("uuid")
+                # Map power_plant_uuid to power_plant_id (only if not already present)
+                # Note: API now returns power_plant_id directly, but keep this for backward compatibility
+                if not record.get("power_plant_id"):
+                    if "power_plant_uuid" in record:
+                        plant_uuid = record["power_plant_uuid"]
+                        record["power_plant_id"] = uuid_to_id.get(plant_uuid)
+                        if not record["power_plant_id"]:
+                            logger.warning(f"Could not find database ID for UUID {plant_uuid}")
+                    # Try other possible field names
+                    elif "power_plant" in record and isinstance(record["power_plant"], dict):
+                        plant_uuid = record["power_plant"].get("uuid")
                     record["power_plant_id"] = uuid_to_id.get(plant_uuid)
 
             logger.debug(
@@ -302,8 +304,9 @@ class SyncCoordinator:
             uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
 
             for record in production_periods_data:
-                # Map power_plant_uuid to power_plant_id
-                if "power_plant_uuid" in record:
+                # Map power_plant_uuid to power_plant_id (only if not already present)
+                # Note: API now returns power_plant_id directly, but keep this for backward compatibility
+                if not record.get("power_plant_id") and "power_plant_uuid" in record:
                     plant_uuid = record["power_plant_uuid"]
                     record["power_plant_id"] = uuid_to_id.get(plant_uuid)
                     if not record["power_plant_id"]:
@@ -384,12 +387,17 @@ class SyncCoordinator:
                 if last_sync:
                     start_date = last_sync.split("T")[0]
 
-            events = self.om_fetcher.fetch_downtime_events(start_date=start_date, end_date=end_date)
+            # Fetch events in both NOK and EUR currencies
+            events = self.om_fetcher.fetch_all_downtime_events(
+                start_date=start_date,
+                end_date=end_date
+            )
 
-            # Map UUID to ID for database insertion
+            # Map UUID to ID for database insertion (only if power_plant_id not already present)
+            # Note: API now returns power_plant_id directly, but keep this for backward compatibility
             uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
             for event in events:
-                if "power_plant_uuid" in event:
+                if not event.get("power_plant_id") and "power_plant_uuid" in event:
                     event["power_plant_id"] = uuid_to_id.get(event["power_plant_uuid"])
 
             count = self.db_handler.upsert_downtime_events(events)
@@ -439,10 +447,11 @@ class SyncCoordinator:
                 to_date=end_date,
             )
 
-            # Map UUID to ID for database insertion
+            # Map UUID to ID for database insertion (only if not already present)
+            # Note: API now returns power_plant_id directly, but keep this for backward compatibility
             uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
             for day in days:
-                if "power_plant_uuid" in day:
+                if not day.get("power_plant_id") and "power_plant_uuid" in day:
                     day["power_plant_id"] = uuid_to_id.get(day["power_plant_uuid"])
 
             count = self.db_handler.upsert_downtime_days(days)
@@ -496,10 +505,11 @@ class SyncCoordinator:
                 timestamp_to=timestamp_to,
             )
 
-            # Map UUID to ID for database insertion
+            # Map UUID to ID for database insertion (only if not already present)
+            # Note: API now returns power_plant_id directly, but keep this for backward compatibility
             uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
             for period in periods:
-                if "power_plant_uuid" in period:
+                if not period.get("power_plant_id") and "power_plant_uuid" in period:
                     period["power_plant_id"] = uuid_to_id.get(period["power_plant_uuid"])
 
             count = self.db_handler.upsert_downtime_periods(periods)
@@ -549,10 +559,11 @@ class SyncCoordinator:
                 end_date=end_date,
             )
 
-            # Map UUID to ID for database insertion
+            # Map UUID to ID for database insertion (only if not already present)
+            # Note: API now returns power_plant_id directly, but keep this for backward compatibility
             uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
             for item in items:
-                if "power_plant_uuid" in item:
+                if not item.get("power_plant_id") and "power_plant_uuid" in item:
                     item["power_plant_id"] = uuid_to_id.get(item["power_plant_uuid"])
 
             count = self.db_handler.upsert_work_items(items)
@@ -600,10 +611,11 @@ class SyncCoordinator:
                 to_date=end_date,
             )
 
-            # Map UUID to ID for database insertion
+            # Map UUID to ID for database insertion (only if not already present)
+            # Note: API now returns power_plant_id directly, but keep this for backward compatibility
             uuid_to_id = self.db_handler.get_power_plant_uuid_to_id_mapping()
             for budget in budgets:
-                if "power_plant_uuid" in budget:
+                if not budget.get("power_plant_id") and "power_plant_uuid" in budget:
                     budget["power_plant_id"] = uuid_to_id.get(budget["power_plant_uuid"])
 
             count = self.db_handler.upsert_budgets(budgets)
