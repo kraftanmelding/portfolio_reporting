@@ -17,6 +17,7 @@ class OMDataFetcher(BaseFetcher):
         start_date: str | None = None,
         end_date: str | None = None,
         power_plant_uuid: str | None = None,
+        currency: str = "NOK",
     ) -> list[dict[str, Any]]:
         """Fetch downtime events with pagination support.
 
@@ -24,15 +25,16 @@ class OMDataFetcher(BaseFetcher):
             start_date: Start date (YYYY-MM-DD format)
             end_date: End date (YYYY-MM-DD format)
             power_plant_uuid: Filter by specific power plant UUID
+            currency: Currency for cost (NOK or EUR)
 
         Returns:
             List of downtime event dictionaries
         """
-        logger.info("Fetching downtime events from API")
+        logger.debug(f"Fetching downtime events from API in {currency}")
 
         # Split date range into yearly chunks to avoid API timeouts
         date_chunks = split_date_range_by_year(start_date, end_date)
-        logger.info(f"Split date range into {len(date_chunks)} yearly chunks")
+        logger.debug(f"Split date range into {len(date_chunks)} yearly chunks")
 
         all_events = []
 
@@ -46,7 +48,7 @@ class OMDataFetcher(BaseFetcher):
                 chunk_events = []
 
                 while True:
-                    params = {"limit": limit, "offset": offset}
+                    params = {"limit": limit, "offset": offset, "currency": currency}
                     if chunk_start:
                         params["start_date"] = chunk_start
                     if chunk_end:
@@ -85,6 +87,52 @@ class OMDataFetcher(BaseFetcher):
                     f"Error fetching downtime events for period {chunk_start} to {chunk_end}: {e}"
                 )
                 raise
+
+        logger.debug(f"Fetched total of {len(all_events)} downtime events in {currency}")
+        return all_events
+
+    def fetch_all_downtime_events(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        power_plant_uuid: str | None = None,
+        currencies: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch downtime events in multiple currencies.
+
+        Args:
+            start_date: Start date (YYYY-MM-DD format)
+            end_date: End date (YYYY-MM-DD format)
+            power_plant_uuid: Filter by specific power plant UUID
+            currencies: List of currencies to fetch (default: ["NOK", "EUR"])
+
+        Returns:
+            List of all downtime event dictionaries
+        """
+        if currencies is None:
+            currencies = ["NOK", "EUR"]
+
+        logger.info(f"Fetching downtime events in {len(currencies)} currencies")
+
+        all_events = []
+
+        for currency in currencies:
+            try:
+                events = self.fetch_downtime_events(
+                    start_date=start_date,
+                    end_date=end_date,
+                    power_plant_uuid=power_plant_uuid,
+                    currency=currency,
+                )
+                # Add currency field to each record for grouping later
+                for event in events:
+                    event["currency"] = currency
+                all_events.extend(events)
+
+            except Exception as e:
+                logger.warning(f"Failed to fetch downtime events in {currency}: {e}")
+                # Continue with other currencies even if one fails
+                continue
 
         logger.info(f"Fetched total of {len(all_events)} downtime events")
         return all_events
