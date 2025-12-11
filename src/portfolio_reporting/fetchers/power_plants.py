@@ -20,8 +20,8 @@ class PowerPlantsFetcher(BaseFetcher):
         logger.info("Fetching power plants from API")
 
         try:
-            # Use v2 API for more detailed power plant information
-            response = self.api_client.get("/api/v2/power_plants")
+            # Use v2 API with reporting=true for portfolio reporting fields
+            response = self.api_client.get("/api/v2/power_plants", params={"reporting": "true"})
 
             # The response might be a list or a dict with a 'data' key
             if isinstance(response, list):
@@ -34,11 +34,10 @@ class PowerPlantsFetcher(BaseFetcher):
             # Transform API fields to database schema
             transformed = []
             for plant in power_plants:
-                # Handle country field - may be a dict with name/code or a simple string
+                # Extract country name from dict if needed
                 country_value = plant.get("country")
                 if isinstance(country_value, dict):
-                    # Use country code if available, otherwise name
-                    country = country_value.get("code") or country_value.get("name")
+                    country = country_value.get("name")
                 else:
                     country = country_value
 
@@ -47,20 +46,15 @@ class PowerPlantsFetcher(BaseFetcher):
                         "id": plant.get("id"),
                         "uuid": plant.get("uuid"),
                         "name": plant.get("name"),
-                        "company_id": plant.get("company_id"),  # May need mapping from company data
-                        "asset_class_type": plant.get(
-                            "asset_class"
-                        ),  # API: asset_class → DB: asset_class_type
-                        "capacity_mw": plant.get(
-                            "installed_effect"
-                        ),  # API: installed_effect → DB: capacity_mw
-                        "price_area": plant.get("price_area"),  # API: price_area → DB: price_area
-                        "country": country,  # Extract string from dict if needed
+                        "company_id": plant.get("company_id"),
+                        "portfolio_name": plant.get("portfolio_name"),  # From reporting=true
+                        "asset_class_type": plant.get("asset_class"),  # API: asset_class → DB: asset_class_type
+                        "capacity_mw": plant.get("installed_effect"),  # API: installed_effect → DB: capacity_mw
+                        "price_area": plant.get("price_area"),
+                        "country": country,
                         "latitude": plant.get("lat"),  # API: lat → DB: latitude
                         "longitude": plant.get("lng"),  # API: lng → DB: longitude
-                        "commissioned_date": plant.get(
-                            "commissioning_date"
-                        ),  # API: commissioning_date
+                        "commissioned_date": plant.get("commissioning_date"),  # API: commissioning_date
                         "created_at": plant.get("created_at"),
                         "updated_at": plant.get("updated_at"),
                     }
