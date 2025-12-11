@@ -83,6 +83,21 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                     capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
                     print(f"      • {row['country']}: {row['count']}{capacity_str}")
 
+            # Breakdown by portfolio
+            cursor.execute("""
+                SELECT portfolio_name, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                FROM power_plants
+                WHERE portfolio_name IS NOT NULL
+                GROUP BY portfolio_name
+                ORDER BY count DESC
+            """)
+            portfolios = cursor.fetchall()
+            if portfolios:
+                print(f"   └─ By portfolio:")
+                for row in portfolios:
+                    capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                    print(f"      • {row['portfolio_name']}: {row['count']}{capacity_str}")
+
             # Data quality check
             cursor.execute("""
                 SELECT
@@ -91,12 +106,14 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                     COUNT(*) - COUNT(commissioned_date) as missing_commissioned,
                     COUNT(*) - COUNT(asset_class_type) as missing_type,
                     COUNT(*) - COUNT(country) as missing_country,
+                    COUNT(*) - COUNT(portfolio_name) as missing_portfolio,
+                    COUNT(*) - COUNT(company_id) as missing_company,
                     COUNT(*) - COUNT(latitude) as missing_lat,
                     COUNT(*) - COUNT(longitude) as missing_lng
                 FROM power_plants
             """)
             quality = cursor.fetchone()
-            if quality["missing_capacity"] > 0 or quality["missing_commissioned"] > 0 or quality["missing_type"] > 0 or quality["missing_country"] > 0 or quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
+            if quality["missing_capacity"] > 0 or quality["missing_commissioned"] > 0 or quality["missing_type"] > 0 or quality["missing_country"] > 0 or quality["missing_portfolio"] > 0 or quality["missing_company"] > 0 or quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
                 print(f"   └─ Missing metadata:")
                 if quality["missing_capacity"] > 0:
                     print(f"      • Capacity: {quality['missing_capacity']} plants")
@@ -106,6 +123,10 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                     print(f"      • Asset class type: {quality['missing_type']} plants")
                 if quality["missing_country"] > 0:
                     print(f"      • Country: {quality['missing_country']} plants")
+                if quality["missing_portfolio"] > 0:
+                    print(f"      • Portfolio name: {quality['missing_portfolio']} plants")
+                if quality["missing_company"] > 0:
+                    print(f"      • Company ID: {quality['missing_company']} plants")
                 if quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
                     print(f"      • Coordinates: {max(quality['missing_lat'], quality['missing_lng'])} plants")
             else:
@@ -164,6 +185,8 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                    AVG(estimated_hourly_volume) as avg_estimated_hourly_volume,
                    SUM(cost_nok) as total_cost_nok,
                    SUM(cost_eur) as total_cost_eur,
+                   COUNT(cost_nok) as has_cost_nok,
+                   COUNT(cost_eur) as has_cost_eur,
                    COUNT(*) FILTER (WHERE verified = 1) as verified_count,
                    COUNT(*) FILTER (WHERE insurance = 1) as insurance_count,
                    COUNT(*) FILTER (WHERE volume_set_manually = 1) as manual_volume_count
@@ -180,9 +203,12 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if downtime["avg_estimated_hourly_volume"]:
                 print(f"   └─ Avg estimated hourly volume: {downtime['avg_estimated_hourly_volume']:,.1f} MWh/h")
             if downtime["total_cost_nok"]:
-                print(f"   └─ Total cost NOK: {downtime['total_cost_nok']:,.0f}")
+                print(f"   └─ Total cost NOK: {downtime['total_cost_nok']:,.0f} ({downtime['has_cost_nok']} events)")
             if downtime["total_cost_eur"]:
-                print(f"   └─ Total cost EUR: {downtime['total_cost_eur']:,.0f}")
+                print(f"   └─ Total cost EUR: {downtime['total_cost_eur']:,.0f} ({downtime['has_cost_eur']} events)")
+            # Data quality warning if NOK and EUR are identical (suggests currency issue)
+            if downtime["total_cost_nok"] and downtime["total_cost_eur"] and downtime["total_cost_nok"] == downtime["total_cost_eur"]:
+                print(f"   └─ ⚠️  WARNING: NOK and EUR totals are identical - check currency handling!")
             if downtime["verified_count"]:
                 print(f"   └─ Verified events: {downtime['verified_count']} ({downtime['verified_count']/downtime['count']*100:.1f}%)")
             if downtime["insurance_count"]:
