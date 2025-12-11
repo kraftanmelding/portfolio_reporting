@@ -137,15 +137,16 @@ class DatabaseHandler:
             cursor.execute(
                 """
                 INSERT INTO power_plants (
-                    id, uuid, name, company_id, asset_class_type,
+                    id, uuid, name, company_id, portfolio_name, asset_class_type,
                     capacity_mw, price_area, country, latitude, longitude, commissioned_date,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     id = excluded.id,
                     name = excluded.name,
                     company_id = excluded.company_id,
+                    portfolio_name = excluded.portfolio_name,
                     asset_class_type = excluded.asset_class_type,
                     capacity_mw = excluded.capacity_mw,
                     price_area = excluded.price_area,
@@ -160,6 +161,7 @@ class DatabaseHandler:
                     plant.get("uuid"),
                     plant.get("name"),
                     plant.get("company_id"),
+                    plant.get("portfolio_name"),
                     plant.get("asset_class_type"),
                     plant.get("capacity_mw"),
                     plant.get("price_area"),
