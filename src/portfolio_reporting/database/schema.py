@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS power_plants (
     uuid TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     company_id INTEGER,
+    portfolio_name TEXT,
     asset_class_type TEXT,
     capacity_mw REAL,
     price_area TEXT,
