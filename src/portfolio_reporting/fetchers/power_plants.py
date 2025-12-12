@@ -43,7 +43,7 @@ class PowerPlantsFetcher(BaseFetcher):
 
                 transformed.append(
                     {
-                        "id": plant.get("id"),
+                        "id": plant.get("power_plant_id"),  # From reporting=true
                         "uuid": plant.get("uuid"),
                         "name": plant.get("name"),
                         "company_id": plant.get("company_id"),
