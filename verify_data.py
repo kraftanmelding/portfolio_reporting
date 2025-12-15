@@ -98,6 +98,36 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                     capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
                     print(f"      • {row['portfolio_name']}: {row['count']}{capacity_str}")
 
+            # Power plant ID summary
+            cursor.execute("""
+                SELECT MIN(id) as min_id, MAX(id) as max_id, COUNT(*) as count
+                FROM power_plants
+            """)
+            id_stats = cursor.fetchone()
+            print(f"   └─ ID range: {id_stats['min_id']} to {id_stats['max_id']}")
+
+            # Check for ID gaps (indicates non-sequential API IDs)
+            cursor.execute("SELECT id FROM power_plants ORDER BY id")
+            ids = [row["id"] for row in cursor.fetchall()]
+            gaps = sum(1 for i in range(1, len(ids)) if ids[i] - ids[i - 1] > 1)
+            if gaps > 0:
+                print(f"   └─ ID gaps: {gaps} (non-sequential API IDs)")
+            else:
+                print(f"   └─ IDs: sequential (no gaps)")
+
+            # Sample power plant IDs (random)
+            cursor.execute("""
+                SELECT id, name, portfolio_name
+                FROM power_plants
+                ORDER BY RANDOM()
+                LIMIT 5
+            """)
+            samples = cursor.fetchall()
+            if samples:
+                print(f"   └─ Sample IDs:")
+                for row in samples:
+                    print(f"      • ID {row['id']}: {row['name']} ({row['portfolio_name']})")
+
             # Data quality check
             cursor.execute("""
                 SELECT
