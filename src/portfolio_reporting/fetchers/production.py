@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from ..utils import split_date_range_by_year
 from .base import BaseFetcher
 
 logger = logging.getLogger(__name__)
@@ -86,9 +87,12 @@ class ProductionFetcher(BaseFetcher):
         if currencies is None:
             currencies = ["NOK", "EUR"]
 
+        # Split date range into yearly chunks to avoid API limit of 365 records
+        date_chunks = split_date_range_by_year(from_date, to_date)
         logger.info(
             f"Fetching production days for {len(power_plants)} power plants in {len(currencies)} currencies"
         )
+        logger.info(f"Split date range into {len(date_chunks)} yearly chunks")
 
         all_production_data = []
 
@@ -99,19 +103,23 @@ class ProductionFetcher(BaseFetcher):
                 continue
 
             for currency in currencies:
-                try:
-                    production_data = self.fetch_production_days(
-                        power_plant_uuid=uuid,
-                        from_date=from_date,
-                        to_date=to_date,
-                        currency=currency,
-                    )
-                    all_production_data.extend(production_data)
+                # Fetch production for each yearly chunk
+                for chunk_start, chunk_end in date_chunks:
+                    try:
+                        production_data = self.fetch_production_days(
+                            power_plant_uuid=uuid,
+                            from_date=chunk_start,
+                            to_date=chunk_end,
+                            currency=currency,
+                        )
+                        all_production_data.extend(production_data)
 
-                except Exception as e:
-                    logger.warning(f"Failed to fetch production for {uuid} in {currency}: {e}")
-                    # Continue with other currencies/plants even if one fails
-                    continue
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to fetch production for {uuid} in {currency} ({chunk_start} to {chunk_end}): {e}"
+                        )
+                        # Continue with other chunks/currencies/plants even if one fails
+                        continue
 
         logger.info(f"Fetched total of {len(all_production_data)} production day records")
         return all_production_data
