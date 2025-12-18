@@ -224,6 +224,10 @@ class SyncCoordinator:
                 if last_sync:
                     from_date = last_sync.split("T")[0]  # Convert to YYYY-MM-DD
 
+            # If to_date not specified, use today (needed for yearly chunking)
+            if not to_date:
+                to_date = datetime.utcnow().strftime("%Y-%m-%d")
+
             production_data = self.production_fetcher.fetch_all_production_days(
                 power_plants=power_plants,
                 from_date=from_date,
@@ -389,8 +393,7 @@ class SyncCoordinator:
 
             # Fetch events in both NOK and EUR currencies
             events = self.om_fetcher.fetch_all_downtime_events(
-                start_date=start_date,
-                end_date=end_date
+                start_date=start_date, end_date=end_date
             )
 
             # Map UUID to ID for database insertion (only if power_plant_id not already present)
