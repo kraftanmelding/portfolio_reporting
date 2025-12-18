@@ -48,13 +48,19 @@ class PowerPlantsFetcher(BaseFetcher):
                         "name": plant.get("name"),
                         "company_id": plant.get("company_id"),
                         "portfolio_name": plant.get("portfolio_name"),  # From reporting=true
-                        "asset_class_type": plant.get("asset_class"),  # API: asset_class → DB: asset_class_type
-                        "capacity_mw": plant.get("installed_effect"),  # API: installed_effect → DB: capacity_mw
+                        "asset_class_type": plant.get(
+                            "asset_class"
+                        ),  # API: asset_class → DB: asset_class_type
+                        "capacity_mw": plant.get(
+                            "installed_effect"
+                        ),  # API: installed_effect → DB: capacity_mw
                         "price_area": plant.get("price_area"),
                         "country": country,
                         "latitude": plant.get("lat"),  # API: lat → DB: latitude
                         "longitude": plant.get("lng"),  # API: lng → DB: longitude
-                        "commissioned_date": plant.get("commissioning_date"),  # API: commissioning_date
+                        "commissioned_date": plant.get(
+                            "commissioning_date"
+                        ),  # API: commissioning_date
                         "created_at": plant.get("created_at"),
                         "updated_at": plant.get("updated_at"),
                     }

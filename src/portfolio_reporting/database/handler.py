@@ -429,7 +429,9 @@ class DatabaseHandler:
                     "power_plant_id": record.get("power_plant_id"),
                     "start_time": record.get("starts_at"),  # API: starts_at → DB: start_time
                     "end_time": record.get("ends_at"),  # API: ends_at → DB: end_time
-                    "duration_hours": record.get("hour_count"),  # API: hour_count → DB: duration_hours
+                    "duration_hours": record.get(
+                        "hour_count"
+                    ),  # API: hour_count → DB: duration_hours
                     "reason": record.get("reason"),
                     "reason_humanized": record.get("reason_humanized"),
                     "component": record.get("component"),
@@ -442,7 +444,9 @@ class DatabaseHandler:
                     "estimated_hourly_volume": record.get("estimated_hourly_volume"),
                     "cost_nok": None,
                     "cost_eur": None,
-                    "lost_production_kwh": record.get("lost_production_kwh"),  # Keep for backward compatibility
+                    "lost_production_kwh": record.get(
+                        "lost_production_kwh"
+                    ),  # Keep for backward compatibility
                     "verified": 1 if record.get("verified") else 0,  # Convert boolean to integer
                     "insurance": 1 if record.get("insurance") else 0,
                     "created_at": record.get("created_at"),

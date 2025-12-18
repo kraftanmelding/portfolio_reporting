@@ -37,9 +37,13 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         if plants["count"] > 0:
             print(f"   └─ Companies: {plants['companies']}")
             if plants["total_capacity"]:
-                print(f"   └─ Total capacity: {plants['total_capacity']:,.1f} MW (avg: {plants['avg_capacity']:,.1f} MW)")
+                print(
+                    f"   └─ Total capacity: {plants['total_capacity']:,.1f} MW (avg: {plants['avg_capacity']:,.1f} MW)"
+                )
             if plants["oldest_commissioned"]:
-                print(f"   └─ Commissioned: {plants['oldest_commissioned']} to {plants['newest_commissioned']}")
+                print(
+                    f"   └─ Commissioned: {plants['oldest_commissioned']} to {plants['newest_commissioned']}"
+                )
 
             # Breakdown by asset class type
             cursor.execute("""
@@ -50,7 +54,9 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             """)
             print(f"   └─ By asset class:")
             for row in cursor:
-                capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                capacity_str = (
+                    f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                )
                 print(f"      • {row['asset_class_type']}: {row['count']}{capacity_str}")
 
             # Breakdown by price area
@@ -65,7 +71,9 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if price_areas:
                 print(f"   └─ By price area:")
                 for row in price_areas:
-                    capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                    capacity_str = (
+                        f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                    )
                     print(f"      • {row['price_area']}: {row['count']}{capacity_str}")
 
             # Breakdown by country
@@ -80,7 +88,9 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if countries:
                 print(f"   └─ By country:")
                 for row in countries:
-                    capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                    capacity_str = (
+                        f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                    )
                     print(f"      • {row['country']}: {row['count']}{capacity_str}")
 
             # Breakdown by portfolio
@@ -95,7 +105,9 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if portfolios:
                 print(f"   └─ By portfolio:")
                 for row in portfolios:
-                    capacity_str = f" ({row['total_capacity']:,.1f} MW)" if row['total_capacity'] else ""
+                    capacity_str = (
+                        f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                    )
                     print(f"      • {row['portfolio_name']}: {row['count']}{capacity_str}")
 
             # Power plant ID summary
@@ -143,7 +155,16 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                 FROM power_plants
             """)
             quality = cursor.fetchone()
-            if quality["missing_capacity"] > 0 or quality["missing_commissioned"] > 0 or quality["missing_type"] > 0 or quality["missing_country"] > 0 or quality["missing_portfolio"] > 0 or quality["missing_company"] > 0 or quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
+            if (
+                quality["missing_capacity"] > 0
+                or quality["missing_commissioned"] > 0
+                or quality["missing_type"] > 0
+                or quality["missing_country"] > 0
+                or quality["missing_portfolio"] > 0
+                or quality["missing_company"] > 0
+                or quality["missing_lat"] > 0
+                or quality["missing_lng"] > 0
+            ):
                 print(f"   └─ Missing metadata:")
                 if quality["missing_capacity"] > 0:
                     print(f"      • Capacity: {quality['missing_capacity']} plants")
@@ -158,7 +179,9 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
                 if quality["missing_company"] > 0:
                     print(f"      • Company ID: {quality['missing_company']} plants")
                 if quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
-                    print(f"      • Coordinates: {max(quality['missing_lat'], quality['missing_lng'])} plants")
+                    print(
+                        f"      • Coordinates: {max(quality['missing_lat'], quality['missing_lng'])} plants"
+                    )
             else:
                 print(f"   └─ ✓ All plants have complete metadata")
 
@@ -201,9 +224,13 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             print(f"   └─ Time range: {prices['min_time']} to {prices['max_time']}")
             print(f"   └─ Price areas: {prices['areas']}")
             if prices["total_price_nok"]:
-                print(f"   └─ Total price NOK: {prices['total_price_nok']:,.0f} (avg: {prices['avg_price_nok']:,.2f})")
+                print(
+                    f"   └─ Total price NOK: {prices['total_price_nok']:,.0f} (avg: {prices['avg_price_nok']:,.2f})"
+                )
             if prices["total_price_eur"]:
-                print(f"   └─ Total price EUR: {prices['total_price_eur']:,.0f} (avg: {prices['avg_price_eur']:,.2f})")
+                print(
+                    f"   └─ Total price EUR: {prices['total_price_eur']:,.0f} (avg: {prices['avg_price_eur']:,.2f})"
+                )
 
         # Downtime events
         cursor.execute("""
@@ -229,22 +256,42 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if downtime["total_volume"]:
                 print(f"   └─ Total lost volume: {downtime['total_volume']:,.0f} MWh")
             if downtime["total_volume_should_have_been"]:
-                print(f"   └─ Total expected volume: {downtime['total_volume_should_have_been']:,.0f} MWh")
+                print(
+                    f"   └─ Total expected volume: {downtime['total_volume_should_have_been']:,.0f} MWh"
+                )
             if downtime["avg_estimated_hourly_volume"]:
-                print(f"   └─ Avg estimated hourly volume: {downtime['avg_estimated_hourly_volume']:,.1f} MWh/h")
+                print(
+                    f"   └─ Avg estimated hourly volume: {downtime['avg_estimated_hourly_volume']:,.1f} MWh/h"
+                )
             if downtime["total_cost_nok"]:
-                print(f"   └─ Total cost NOK: {downtime['total_cost_nok']:,.0f} ({downtime['has_cost_nok']} events)")
+                print(
+                    f"   └─ Total cost NOK: {downtime['total_cost_nok']:,.0f} ({downtime['has_cost_nok']} events)"
+                )
             if downtime["total_cost_eur"]:
-                print(f"   └─ Total cost EUR: {downtime['total_cost_eur']:,.0f} ({downtime['has_cost_eur']} events)")
+                print(
+                    f"   └─ Total cost EUR: {downtime['total_cost_eur']:,.0f} ({downtime['has_cost_eur']} events)"
+                )
             # Data quality warning if NOK and EUR are identical (suggests currency issue)
-            if downtime["total_cost_nok"] and downtime["total_cost_eur"] and downtime["total_cost_nok"] == downtime["total_cost_eur"]:
-                print(f"   └─ ⚠️  WARNING: NOK and EUR totals are identical - check currency handling!")
+            if (
+                downtime["total_cost_nok"]
+                and downtime["total_cost_eur"]
+                and downtime["total_cost_nok"] == downtime["total_cost_eur"]
+            ):
+                print(
+                    f"   └─ ⚠️  WARNING: NOK and EUR totals are identical - check currency handling!"
+                )
             if downtime["verified_count"]:
-                print(f"   └─ Verified events: {downtime['verified_count']} ({downtime['verified_count']/downtime['count']*100:.1f}%)")
+                print(
+                    f"   └─ Verified events: {downtime['verified_count']} ({downtime['verified_count'] / downtime['count'] * 100:.1f}%)"
+                )
             if downtime["insurance_count"]:
-                print(f"   └─ Insurance covered: {downtime['insurance_count']} ({downtime['insurance_count']/downtime['count']*100:.1f}%)")
+                print(
+                    f"   └─ Insurance covered: {downtime['insurance_count']} ({downtime['insurance_count'] / downtime['count'] * 100:.1f}%)"
+                )
             if downtime["manual_volume_count"]:
-                print(f"   └─ Manual volume set: {downtime['manual_volume_count']} ({downtime['manual_volume_count']/downtime['count']*100:.1f}%)")
+                print(
+                    f"   └─ Manual volume set: {downtime['manual_volume_count']} ({downtime['manual_volume_count'] / downtime['count'] * 100:.1f}%)"
+                )
 
             # Top reasons
             cursor.execute("""
@@ -259,7 +306,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if reasons:
                 print(f"   └─ Top reasons:")
                 for row in reasons:
-                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row['total_volume'] else ""
+                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
                     print(f"      • {row['reason']}: {row['count']}{vol_str}")
 
             # Top components
@@ -275,7 +322,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if components:
                 print(f"   └─ Top components:")
                 for row in components:
-                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row['total_volume'] else ""
+                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
                     print(f"      • {row['component']}: {row['count']}{vol_str}")
 
         # Downtime days
@@ -312,7 +359,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if reasons:
                 print(f"   └─ Top reasons:")
                 for row in reasons:
-                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row['total_volume'] else ""
+                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
                     print(f"      • {row['reason']}: {row['count']}{vol_str}")
 
         # Downtime periods
@@ -351,7 +398,7 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             if components:
                 print(f"   └─ Top components:")
                 for row in components:
-                    hours_str = f" ({row['total_hours']:,.0f}h)" if row['total_hours'] else ""
+                    hours_str = f" ({row['total_hours']:,.0f}h)" if row["total_hours"] else ""
                     print(f"      • {row['component']}: {row['count']}{hours_str}")
 
         # Work items
@@ -435,7 +482,10 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
             print("  - A sync process is currently running", file=sys.stderr)
             print("  - Database file is open in another application", file=sys.stderr)
             print("\nSolution:", file=sys.stderr)
-            print("  1. Close Power BI and any other applications accessing the database", file=sys.stderr)
+            print(
+                "  1. Close Power BI and any other applications accessing the database",
+                file=sys.stderr,
+            )
             print("  2. Stop any running sync processes", file=sys.stderr)
             print("  3. Try running this script again", file=sys.stderr)
             print("\n" + "=" * 80, file=sys.stderr)
