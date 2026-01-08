@@ -138,10 +138,10 @@ class DatabaseHandler:
                 """
                 INSERT INTO power_plants (
                     id, uuid, name, company_id, portfolio_name, asset_class_type,
-                    capacity_mw, price_area, country, latitude, longitude, commissioned_date,
-                    created_at, updated_at
+                    capacity_mw, yearly_production, price_area, country, latitude, longitude,
+                    commissioned_date, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET
                     id = excluded.id,
                     name = excluded.name,
@@ -149,6 +149,7 @@ class DatabaseHandler:
                     portfolio_name = excluded.portfolio_name,
                     asset_class_type = excluded.asset_class_type,
                     capacity_mw = excluded.capacity_mw,
+                    yearly_production = excluded.yearly_production,
                     price_area = excluded.price_area,
                     country = excluded.country,
                     latitude = excluded.latitude,
@@ -164,6 +165,7 @@ class DatabaseHandler:
                     plant.get("portfolio_name"),
                     plant.get("asset_class_type"),
                     plant.get("capacity_mw"),
+                    plant.get("yearly_production"),
                     plant.get("price_area"),
                     plant.get("country"),
                     plant.get("latitude"),
