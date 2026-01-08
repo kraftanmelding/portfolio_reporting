@@ -3,11 +3,29 @@
 
 import sqlite3
 import sys
+from pathlib import Path
+
+import yaml
 
 
-def verify_data(db_path: str = "data/portfolio_report.db"):
+def load_config(config_path: str = "config.yaml") -> dict:
+    """Load configuration from YAML file."""
+    config_file = Path(config_path)
+    if not config_file.exists():
+        return {}
+    with open(config_file) as f:
+        return yaml.safe_load(f) or {}
+
+
+def is_enabled(config: dict, key: str) -> bool:
+    """Check if a data fetch option is enabled in config."""
+    return config.get("data", {}).get(key, True)
+
+
+def verify_data(db_path: str = "data/portfolio_report.db", config_path: str = "config.yaml"):
     """Verify data in the database."""
     try:
+        config = load_config(config_path)
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -18,438 +36,475 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
         print()
 
         # Companies
-        cursor.execute("SELECT COUNT(*) as count FROM companies")
-        companies_count = cursor.fetchone()["count"]
-        print(f"📊 Companies: {companies_count}")
+        if is_enabled(config, "fetch_companies"):
+            cursor.execute("SELECT COUNT(*) as count FROM companies")
+            companies_count = cursor.fetchone()["count"]
+            print(f"📊 Companies: {companies_count}")
+        else:
+            print("📊 Companies: (skipped - disabled in config)")
 
         # Power plants
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   COUNT(DISTINCT company_id) as companies,
-                   SUM(capacity_mw) as total_capacity,
-                   AVG(capacity_mw) as avg_capacity,
-                   MIN(commissioned_date) as oldest_commissioned,
-                   MAX(commissioned_date) as newest_commissioned
-            FROM power_plants
-        """)
-        plants = cursor.fetchone()
-        print(f"🏭 Power plants: {plants['count']}")
-        if plants["count"] > 0:
-            print(f"   └─ Companies: {plants['companies']}")
-            if plants["total_capacity"]:
-                print(
-                    f"   └─ Total capacity: {plants['total_capacity']:,.1f} MW (avg: {plants['avg_capacity']:,.1f} MW)"
-                )
-            if plants["oldest_commissioned"]:
-                print(
-                    f"   └─ Commissioned: {plants['oldest_commissioned']} to {plants['newest_commissioned']}"
-                )
-
-            # Breakdown by asset class type
+        if is_enabled(config, "fetch_power_plants"):
             cursor.execute("""
-                SELECT asset_class_type, COUNT(*) as count, SUM(capacity_mw) as total_capacity
-                FROM power_plants
-                GROUP BY asset_class_type
-                ORDER BY count DESC
-            """)
-            print(f"   └─ By asset class:")
-            for row in cursor:
-                capacity_str = (
-                    f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
-                )
-                print(f"      • {row['asset_class_type']}: {row['count']}{capacity_str}")
-
-            # Breakdown by price area
-            cursor.execute("""
-                SELECT price_area, COUNT(*) as count, SUM(capacity_mw) as total_capacity
-                FROM power_plants
-                WHERE price_area IS NOT NULL
-                GROUP BY price_area
-                ORDER BY count DESC
-            """)
-            price_areas = cursor.fetchall()
-            if price_areas:
-                print(f"   └─ By price area:")
-                for row in price_areas:
-                    capacity_str = (
-                        f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
-                    )
-                    print(f"      • {row['price_area']}: {row['count']}{capacity_str}")
-
-            # Breakdown by country
-            cursor.execute("""
-                SELECT country, COUNT(*) as count, SUM(capacity_mw) as total_capacity
-                FROM power_plants
-                WHERE country IS NOT NULL
-                GROUP BY country
-                ORDER BY count DESC
-            """)
-            countries = cursor.fetchall()
-            if countries:
-                print(f"   └─ By country:")
-                for row in countries:
-                    capacity_str = (
-                        f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
-                    )
-                    print(f"      • {row['country']}: {row['count']}{capacity_str}")
-
-            # Breakdown by portfolio
-            cursor.execute("""
-                SELECT portfolio_name, COUNT(*) as count, SUM(capacity_mw) as total_capacity
-                FROM power_plants
-                WHERE portfolio_name IS NOT NULL
-                GROUP BY portfolio_name
-                ORDER BY count DESC
-            """)
-            portfolios = cursor.fetchall()
-            if portfolios:
-                print(f"   └─ By portfolio:")
-                for row in portfolios:
-                    capacity_str = (
-                        f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
-                    )
-                    print(f"      • {row['portfolio_name']}: {row['count']}{capacity_str}")
-
-            # Power plant ID summary
-            cursor.execute("""
-                SELECT MIN(id) as min_id, MAX(id) as max_id, COUNT(*) as count
+                SELECT COUNT(*) as count,
+                       COUNT(DISTINCT company_id) as companies,
+                       SUM(capacity_mw) as total_capacity,
+                       AVG(capacity_mw) as avg_capacity,
+                       MIN(commissioned_date) as oldest_commissioned,
+                       MAX(commissioned_date) as newest_commissioned
                 FROM power_plants
             """)
-            id_stats = cursor.fetchone()
-            print(f"   └─ ID range: {id_stats['min_id']} to {id_stats['max_id']}")
-
-            # Check for ID gaps (indicates non-sequential API IDs)
-            cursor.execute("SELECT id FROM power_plants ORDER BY id")
-            ids = [row["id"] for row in cursor.fetchall()]
-            gaps = sum(1 for i in range(1, len(ids)) if ids[i] - ids[i - 1] > 1)
-            if gaps > 0:
-                print(f"   └─ ID gaps: {gaps} (non-sequential API IDs)")
-            else:
-                print(f"   └─ IDs: sequential (no gaps)")
-
-            # Sample power plant IDs (random)
-            cursor.execute("""
-                SELECT id, name, portfolio_name
-                FROM power_plants
-                ORDER BY RANDOM()
-                LIMIT 5
-            """)
-            samples = cursor.fetchall()
-            if samples:
-                print(f"   └─ Sample IDs:")
-                for row in samples:
-                    print(f"      • ID {row['id']}: {row['name']} ({row['portfolio_name']})")
-
-            # Data quality check
-            cursor.execute("""
-                SELECT
-                    COUNT(*) as total,
-                    COUNT(*) - COUNT(capacity_mw) as missing_capacity,
-                    COUNT(*) - COUNT(commissioned_date) as missing_commissioned,
-                    COUNT(*) - COUNT(asset_class_type) as missing_type,
-                    COUNT(*) - COUNT(country) as missing_country,
-                    COUNT(*) - COUNT(portfolio_name) as missing_portfolio,
-                    COUNT(*) - COUNT(company_id) as missing_company,
-                    COUNT(*) - COUNT(latitude) as missing_lat,
-                    COUNT(*) - COUNT(longitude) as missing_lng
-                FROM power_plants
-            """)
-            quality = cursor.fetchone()
-            if (
-                quality["missing_capacity"] > 0
-                or quality["missing_commissioned"] > 0
-                or quality["missing_type"] > 0
-                or quality["missing_country"] > 0
-                or quality["missing_portfolio"] > 0
-                or quality["missing_company"] > 0
-                or quality["missing_lat"] > 0
-                or quality["missing_lng"] > 0
-            ):
-                print(f"   └─ Missing metadata:")
-                if quality["missing_capacity"] > 0:
-                    print(f"      • Capacity: {quality['missing_capacity']} plants")
-                if quality["missing_commissioned"] > 0:
-                    print(f"      • Commissioned date: {quality['missing_commissioned']} plants")
-                if quality["missing_type"] > 0:
-                    print(f"      • Asset class type: {quality['missing_type']} plants")
-                if quality["missing_country"] > 0:
-                    print(f"      • Country: {quality['missing_country']} plants")
-                if quality["missing_portfolio"] > 0:
-                    print(f"      • Portfolio name: {quality['missing_portfolio']} plants")
-                if quality["missing_company"] > 0:
-                    print(f"      • Company ID: {quality['missing_company']} plants")
-                if quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
+            plants = cursor.fetchone()
+            print(f"🏭 Power plants: {plants['count']}")
+            if plants["count"] > 0:
+                print(f"   └─ Companies: {plants['companies']}")
+                if plants["total_capacity"]:
                     print(
-                        f"      • Coordinates: {max(quality['missing_lat'], quality['missing_lng'])} plants"
+                        f"   └─ Total capacity: {plants['total_capacity']:,.1f} MW (avg: {plants['avg_capacity']:,.1f} MW)"
                     )
-            else:
-                print(f"   └─ ✓ All plants have complete metadata")
+                if plants["oldest_commissioned"]:
+                    print(
+                        f"   └─ Commissioned: {plants['oldest_commissioned']} to {plants['newest_commissioned']}"
+                    )
+
+                # Breakdown by asset class type
+                cursor.execute("""
+                    SELECT asset_class_type, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                    FROM power_plants
+                    GROUP BY asset_class_type
+                    ORDER BY count DESC
+                """)
+                print("   └─ By asset class:")
+                for row in cursor:
+                    capacity_str = (
+                        f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                    )
+                    print(f"      • {row['asset_class_type']}: {row['count']}{capacity_str}")
+
+                # Breakdown by price area
+                cursor.execute("""
+                    SELECT price_area, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                    FROM power_plants
+                    WHERE price_area IS NOT NULL
+                    GROUP BY price_area
+                    ORDER BY count DESC
+                """)
+                price_areas = cursor.fetchall()
+                if price_areas:
+                    print("   └─ By price area:")
+                    for row in price_areas:
+                        capacity_str = (
+                            f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                        )
+                        print(f"      • {row['price_area']}: {row['count']}{capacity_str}")
+
+                # Breakdown by country
+                cursor.execute("""
+                    SELECT country, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                    FROM power_plants
+                    WHERE country IS NOT NULL
+                    GROUP BY country
+                    ORDER BY count DESC
+                """)
+                countries = cursor.fetchall()
+                if countries:
+                    print("   └─ By country:")
+                    for row in countries:
+                        capacity_str = (
+                            f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                        )
+                        print(f"      • {row['country']}: {row['count']}{capacity_str}")
+
+                # Breakdown by portfolio
+                cursor.execute("""
+                    SELECT portfolio_name, COUNT(*) as count, SUM(capacity_mw) as total_capacity
+                    FROM power_plants
+                    WHERE portfolio_name IS NOT NULL
+                    GROUP BY portfolio_name
+                    ORDER BY count DESC
+                """)
+                portfolios = cursor.fetchall()
+                if portfolios:
+                    print("   └─ By portfolio:")
+                    for row in portfolios:
+                        capacity_str = (
+                            f" ({row['total_capacity']:,.1f} MW)" if row["total_capacity"] else ""
+                        )
+                        print(f"      • {row['portfolio_name']}: {row['count']}{capacity_str}")
+
+                # Power plant ID summary
+                cursor.execute("""
+                    SELECT MIN(id) as min_id, MAX(id) as max_id, COUNT(*) as count
+                    FROM power_plants
+                """)
+                id_stats = cursor.fetchone()
+                print(f"   └─ ID range: {id_stats['min_id']} to {id_stats['max_id']}")
+
+                # Check for ID gaps (indicates non-sequential API IDs)
+                cursor.execute("SELECT id FROM power_plants ORDER BY id")
+                ids = [row["id"] for row in cursor.fetchall()]
+                gaps = sum(1 for i in range(1, len(ids)) if ids[i] - ids[i - 1] > 1)
+                if gaps > 0:
+                    print(f"   └─ ID gaps: {gaps} (non-sequential API IDs)")
+                else:
+                    print("   └─ IDs: sequential (no gaps)")
+
+                # Sample power plant IDs (random)
+                cursor.execute("""
+                    SELECT id, name, portfolio_name
+                    FROM power_plants
+                    ORDER BY RANDOM()
+                    LIMIT 5
+                """)
+                samples = cursor.fetchall()
+                if samples:
+                    print("   └─ Sample IDs:")
+                    for row in samples:
+                        print(f"      • ID {row['id']}: {row['name']} ({row['portfolio_name']})")
+
+                # Data quality check
+                cursor.execute("""
+                    SELECT
+                        COUNT(*) as total,
+                        COUNT(*) - COUNT(capacity_mw) as missing_capacity,
+                        COUNT(*) - COUNT(commissioned_date) as missing_commissioned,
+                        COUNT(*) - COUNT(asset_class_type) as missing_type,
+                        COUNT(*) - COUNT(country) as missing_country,
+                        COUNT(*) - COUNT(portfolio_name) as missing_portfolio,
+                        COUNT(*) - COUNT(company_id) as missing_company,
+                        COUNT(*) - COUNT(latitude) as missing_lat,
+                        COUNT(*) - COUNT(longitude) as missing_lng
+                    FROM power_plants
+                """)
+                quality = cursor.fetchone()
+                if (
+                    quality["missing_capacity"] > 0
+                    or quality["missing_commissioned"] > 0
+                    or quality["missing_type"] > 0
+                    or quality["missing_country"] > 0
+                    or quality["missing_portfolio"] > 0
+                    or quality["missing_company"] > 0
+                    or quality["missing_lat"] > 0
+                    or quality["missing_lng"] > 0
+                ):
+                    print("   └─ Missing metadata:")
+                    if quality["missing_capacity"] > 0:
+                        print(f"      • Capacity: {quality['missing_capacity']} plants")
+                    if quality["missing_commissioned"] > 0:
+                        print(
+                            f"      • Commissioned date: {quality['missing_commissioned']} plants"
+                        )
+                    if quality["missing_type"] > 0:
+                        print(f"      • Asset class type: {quality['missing_type']} plants")
+                    if quality["missing_country"] > 0:
+                        print(f"      • Country: {quality['missing_country']} plants")
+                    if quality["missing_portfolio"] > 0:
+                        print(f"      • Portfolio name: {quality['missing_portfolio']} plants")
+                    if quality["missing_company"] > 0:
+                        print(f"      • Company ID: {quality['missing_company']} plants")
+                    if quality["missing_lat"] > 0 or quality["missing_lng"] > 0:
+                        print(
+                            f"      • Coordinates: {max(quality['missing_lat'], quality['missing_lng'])} plants"
+                        )
+                else:
+                    print("   └─ ✓ All plants have complete metadata")
+        else:
+            print("🏭 Power plants: (skipped - disabled in config)")
 
         # Production days
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   MIN(date) as min_date,
-                   MAX(date) as max_date,
-                   SUM(volume) as total_volume,
-                   SUM(revenue_nok) as total_revenue_nok,
-                   SUM(revenue_eur) as total_revenue_eur
-            FROM production_days
-        """)
-        prod = cursor.fetchone()
-        print(f"⚡ Production days: {prod['count']:,}")
-        if prod["count"] > 0:
-            print(f"   └─ Date range: {prod['min_date']} to {prod['max_date']}")
-            if prod["total_volume"]:
-                print(f"   └─ Total volume: {prod['total_volume']:,.0f} MWh")
-            if prod["total_revenue_nok"]:
-                print(f"   └─ Total revenue NOK: {prod['total_revenue_nok']:,.0f}")
-            if prod["total_revenue_eur"]:
-                print(f"   └─ Total revenue EUR: {prod['total_revenue_eur']:,.0f}")
+        if is_enabled(config, "fetch_production"):
+            cursor.execute("""
+                SELECT COUNT(*) as count,
+                       MIN(date) as min_date,
+                       MAX(date) as max_date,
+                       SUM(volume) as total_volume,
+                       SUM(revenue_nok) as total_revenue_nok,
+                       SUM(revenue_eur) as total_revenue_eur
+                FROM production_days
+            """)
+            prod = cursor.fetchone()
+            print(f"⚡ Production days: {prod['count']:,}")
+            if prod["count"] > 0:
+                print(f"   └─ Date range: {prod['min_date']} to {prod['max_date']}")
+                if prod["total_volume"]:
+                    print(f"   └─ Total volume: {prod['total_volume']:,.0f} MWh")
+                if prod["total_revenue_nok"]:
+                    print(f"   └─ Total revenue NOK: {prod['total_revenue_nok']:,.0f}")
+                if prod["total_revenue_eur"]:
+                    print(f"   └─ Total revenue EUR: {prod['total_revenue_eur']:,.0f}")
+        else:
+            print("⚡ Production days: (skipped - disabled in config)")
 
         # Market prices
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   MIN(timestamp) as min_time,
-                   MAX(timestamp) as max_time,
-                   COUNT(DISTINCT price_area) as areas,
-                   SUM(price_nok) as total_price_nok,
-                   SUM(price_eur) as total_price_eur,
-                   AVG(price_nok) as avg_price_nok,
-                   AVG(price_eur) as avg_price_eur
-            FROM market_prices
-        """)
-        prices = cursor.fetchone()
-        print(f"💰 Market prices: {prices['count']:,}")
-        if prices["count"] > 0:
-            print(f"   └─ Time range: {prices['min_time']} to {prices['max_time']}")
-            print(f"   └─ Price areas: {prices['areas']}")
-            if prices["total_price_nok"]:
-                print(
-                    f"   └─ Total price NOK: {prices['total_price_nok']:,.0f} (avg: {prices['avg_price_nok']:,.2f})"
-                )
-            if prices["total_price_eur"]:
-                print(
-                    f"   └─ Total price EUR: {prices['total_price_eur']:,.0f} (avg: {prices['avg_price_eur']:,.2f})"
-                )
+        if is_enabled(config, "fetch_market_prices"):
+            cursor.execute("""
+                SELECT COUNT(*) as count,
+                       MIN(timestamp) as min_time,
+                       MAX(timestamp) as max_time,
+                       COUNT(DISTINCT price_area) as areas,
+                       SUM(price_nok) as total_price_nok,
+                       SUM(price_eur) as total_price_eur,
+                       AVG(price_nok) as avg_price_nok,
+                       AVG(price_eur) as avg_price_eur
+                FROM market_prices
+            """)
+            prices = cursor.fetchone()
+            print(f"💰 Market prices: {prices['count']:,}")
+            if prices["count"] > 0:
+                print(f"   └─ Time range: {prices['min_time']} to {prices['max_time']}")
+                print(f"   └─ Price areas: {prices['areas']}")
+                if prices["total_price_nok"]:
+                    print(
+                        f"   └─ Total price NOK: {prices['total_price_nok']:,.0f} (avg: {prices['avg_price_nok']:,.2f})"
+                    )
+                if prices["total_price_eur"]:
+                    print(
+                        f"   └─ Total price EUR: {prices['total_price_eur']:,.0f} (avg: {prices['avg_price_eur']:,.2f})"
+                    )
+        else:
+            print("💰 Market prices: (skipped - disabled in config)")
 
         # Downtime events
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   MIN(start_time) as min_time,
-                   MAX(start_time) as max_time,
-                   SUM(volume) as total_volume,
-                   SUM(volume_should_have_been) as total_volume_should_have_been,
-                   AVG(estimated_hourly_volume) as avg_estimated_hourly_volume,
-                   SUM(cost_nok) as total_cost_nok,
-                   SUM(cost_eur) as total_cost_eur,
-                   COUNT(cost_nok) as has_cost_nok,
-                   COUNT(cost_eur) as has_cost_eur,
-                   COUNT(*) FILTER (WHERE verified = 1) as verified_count,
-                   COUNT(*) FILTER (WHERE insurance = 1) as insurance_count,
-                   COUNT(*) FILTER (WHERE volume_set_manually = 1) as manual_volume_count
-            FROM downtime_events
-        """)
-        downtime = cursor.fetchone()
-        print(f"🔧 Downtime events: {downtime['count']}")
-        if downtime["count"] > 0 and downtime["min_time"]:
-            print(f"   └─ Time range: {downtime['min_time']} to {downtime['max_time']}")
-            if downtime["total_volume"]:
-                print(f"   └─ Total lost volume: {downtime['total_volume']:,.0f} MWh")
-            if downtime["total_volume_should_have_been"]:
-                print(
-                    f"   └─ Total expected volume: {downtime['total_volume_should_have_been']:,.0f} MWh"
-                )
-            if downtime["avg_estimated_hourly_volume"]:
-                print(
-                    f"   └─ Avg estimated hourly volume: {downtime['avg_estimated_hourly_volume']:,.1f} MWh/h"
-                )
-            if downtime["total_cost_nok"]:
-                print(
-                    f"   └─ Total cost NOK: {downtime['total_cost_nok']:,.0f} ({downtime['has_cost_nok']} events)"
-                )
-            if downtime["total_cost_eur"]:
-                print(
-                    f"   └─ Total cost EUR: {downtime['total_cost_eur']:,.0f} ({downtime['has_cost_eur']} events)"
-                )
-            # Data quality warning if NOK and EUR are identical (suggests currency issue)
-            if (
-                downtime["total_cost_nok"]
-                and downtime["total_cost_eur"]
-                and downtime["total_cost_nok"] == downtime["total_cost_eur"]
-            ):
-                print(
-                    f"   └─ ⚠️  WARNING: NOK and EUR totals are identical - check currency handling!"
-                )
-            if downtime["verified_count"]:
-                print(
-                    f"   └─ Verified events: {downtime['verified_count']} ({downtime['verified_count'] / downtime['count'] * 100:.1f}%)"
-                )
-            if downtime["insurance_count"]:
-                print(
-                    f"   └─ Insurance covered: {downtime['insurance_count']} ({downtime['insurance_count'] / downtime['count'] * 100:.1f}%)"
-                )
-            if downtime["manual_volume_count"]:
-                print(
-                    f"   └─ Manual volume set: {downtime['manual_volume_count']} ({downtime['manual_volume_count'] / downtime['count'] * 100:.1f}%)"
-                )
-
-            # Top reasons
+        if is_enabled(config, "fetch_downtime_events"):
             cursor.execute("""
-                SELECT reason, COUNT(*) as count, SUM(volume) as total_volume
+                SELECT COUNT(*) as count,
+                       MIN(start_time) as min_time,
+                       MAX(start_time) as max_time,
+                       SUM(volume) as total_volume,
+                       SUM(volume_should_have_been) as total_volume_should_have_been,
+                       AVG(estimated_hourly_volume) as avg_estimated_hourly_volume,
+                       SUM(cost_nok) as total_cost_nok,
+                       SUM(cost_eur) as total_cost_eur,
+                       COUNT(cost_nok) as has_cost_nok,
+                       COUNT(cost_eur) as has_cost_eur,
+                       COUNT(*) FILTER (WHERE verified = 1) as verified_count,
+                       COUNT(*) FILTER (WHERE insurance = 1) as insurance_count,
+                       COUNT(*) FILTER (WHERE volume_set_manually = 1) as manual_volume_count
                 FROM downtime_events
-                WHERE reason IS NOT NULL
-                GROUP BY reason
-                ORDER BY count DESC
-                LIMIT 5
             """)
-            reasons = cursor.fetchall()
-            if reasons:
-                print(f"   └─ Top reasons:")
-                for row in reasons:
-                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
-                    print(f"      • {row['reason']}: {row['count']}{vol_str}")
+            downtime = cursor.fetchone()
+            print(f"🔧 Downtime events: {downtime['count']}")
+            if downtime["count"] > 0 and downtime["min_time"]:
+                print(f"   └─ Time range: {downtime['min_time']} to {downtime['max_time']}")
+                if downtime["total_volume"]:
+                    print(f"   └─ Total lost volume: {downtime['total_volume']:,.0f} MWh")
+                if downtime["total_volume_should_have_been"]:
+                    print(
+                        f"   └─ Total expected volume: {downtime['total_volume_should_have_been']:,.0f} MWh"
+                    )
+                if downtime["avg_estimated_hourly_volume"]:
+                    print(
+                        f"   └─ Avg estimated hourly volume: {downtime['avg_estimated_hourly_volume']:,.1f} MWh/h"
+                    )
+                if downtime["total_cost_nok"]:
+                    print(
+                        f"   └─ Total cost NOK: {downtime['total_cost_nok']:,.0f} ({downtime['has_cost_nok']} events)"
+                    )
+                if downtime["total_cost_eur"]:
+                    print(
+                        f"   └─ Total cost EUR: {downtime['total_cost_eur']:,.0f} ({downtime['has_cost_eur']} events)"
+                    )
+                # Data quality warning if NOK and EUR are identical (suggests currency issue)
+                if (
+                    downtime["total_cost_nok"]
+                    and downtime["total_cost_eur"]
+                    and downtime["total_cost_nok"] == downtime["total_cost_eur"]
+                ):
+                    print(
+                        "   └─ ⚠️  WARNING: NOK and EUR totals are identical - check currency handling!"
+                    )
+                if downtime["verified_count"]:
+                    print(
+                        f"   └─ Verified events: {downtime['verified_count']} ({downtime['verified_count'] / downtime['count'] * 100:.1f}%)"
+                    )
+                if downtime["insurance_count"]:
+                    print(
+                        f"   └─ Insurance covered: {downtime['insurance_count']} ({downtime['insurance_count'] / downtime['count'] * 100:.1f}%)"
+                    )
+                if downtime["manual_volume_count"]:
+                    print(
+                        f"   └─ Manual volume set: {downtime['manual_volume_count']} ({downtime['manual_volume_count'] / downtime['count'] * 100:.1f}%)"
+                    )
 
-            # Top components
-            cursor.execute("""
-                SELECT component, COUNT(*) as count, SUM(volume) as total_volume
-                FROM downtime_events
-                WHERE component IS NOT NULL
-                GROUP BY component
-                ORDER BY count DESC
-                LIMIT 5
-            """)
-            components = cursor.fetchall()
-            if components:
-                print(f"   └─ Top components:")
-                for row in components:
-                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
-                    print(f"      • {row['component']}: {row['count']}{vol_str}")
+                # Top reasons
+                cursor.execute("""
+                    SELECT reason, COUNT(*) as count, SUM(volume) as total_volume
+                    FROM downtime_events
+                    WHERE reason IS NOT NULL
+                    GROUP BY reason
+                    ORDER BY count DESC
+                    LIMIT 5
+                """)
+                reasons = cursor.fetchall()
+                if reasons:
+                    print("   └─ Top reasons:")
+                    for row in reasons:
+                        vol_str = (
+                            f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
+                        )
+                        print(f"      • {row['reason']}: {row['count']}{vol_str}")
+
+                # Top components
+                cursor.execute("""
+                    SELECT component, COUNT(*) as count, SUM(volume) as total_volume
+                    FROM downtime_events
+                    WHERE component IS NOT NULL
+                    GROUP BY component
+                    ORDER BY count DESC
+                    LIMIT 5
+                """)
+                components = cursor.fetchall()
+                if components:
+                    print("   └─ Top components:")
+                    for row in components:
+                        vol_str = (
+                            f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
+                        )
+                        print(f"      • {row['component']}: {row['count']}{vol_str}")
+        else:
+            print("🔧 Downtime events: (skipped - disabled in config)")
 
         # Downtime days
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   MIN(date) as min_date,
-                   MAX(date) as max_date,
-                   SUM(volume) as total_volume,
-                   SUM(cost_nok) as total_cost_nok,
-                   SUM(cost_eur) as total_cost_eur
-            FROM downtime_days
-        """)
-        downtime_days = cursor.fetchone()
-        print(f"📅 Downtime days: {downtime_days['count']}")
-        if downtime_days["count"] > 0:
-            print(f"   └─ Date range: {downtime_days['min_date']} to {downtime_days['max_date']}")
-            if downtime_days["total_volume"]:
-                print(f"   └─ Total lost volume: {downtime_days['total_volume']:,.0f} MWh")
-            if downtime_days["total_cost_nok"]:
-                print(f"   └─ Total cost NOK: {downtime_days['total_cost_nok']:,.0f}")
-            if downtime_days["total_cost_eur"]:
-                print(f"   └─ Total cost EUR: {downtime_days['total_cost_eur']:,.0f}")
-
-            # Top reasons
+        if is_enabled(config, "fetch_downtime_days"):
             cursor.execute("""
-                SELECT reason, COUNT(*) as count, SUM(volume) as total_volume
+                SELECT COUNT(*) as count,
+                       MIN(date) as min_date,
+                       MAX(date) as max_date,
+                       SUM(volume) as total_volume,
+                       SUM(cost_nok) as total_cost_nok,
+                       SUM(cost_eur) as total_cost_eur
                 FROM downtime_days
-                WHERE reason IS NOT NULL
-                GROUP BY reason
-                ORDER BY count DESC
-                LIMIT 5
             """)
-            reasons = cursor.fetchall()
-            if reasons:
-                print(f"   └─ Top reasons:")
-                for row in reasons:
-                    vol_str = f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
-                    print(f"      • {row['reason']}: {row['count']}{vol_str}")
+            downtime_days = cursor.fetchone()
+            print(f"📅 Downtime days: {downtime_days['count']}")
+            if downtime_days["count"] > 0:
+                print(
+                    f"   └─ Date range: {downtime_days['min_date']} to {downtime_days['max_date']}"
+                )
+                if downtime_days["total_volume"]:
+                    print(f"   └─ Total lost volume: {downtime_days['total_volume']:,.0f} MWh")
+                if downtime_days["total_cost_nok"]:
+                    print(f"   └─ Total cost NOK: {downtime_days['total_cost_nok']:,.0f}")
+                if downtime_days["total_cost_eur"]:
+                    print(f"   └─ Total cost EUR: {downtime_days['total_cost_eur']:,.0f}")
+
+                # Top reasons
+                cursor.execute("""
+                    SELECT reason, COUNT(*) as count, SUM(volume) as total_volume
+                    FROM downtime_days
+                    WHERE reason IS NOT NULL
+                    GROUP BY reason
+                    ORDER BY count DESC
+                    LIMIT 5
+                """)
+                reasons = cursor.fetchall()
+                if reasons:
+                    print("   └─ Top reasons:")
+                    for row in reasons:
+                        vol_str = (
+                            f" ({row['total_volume']:,.0f} MWh)" if row["total_volume"] else ""
+                        )
+                        print(f"      • {row['reason']}: {row['count']}{vol_str}")
+        else:
+            print("📅 Downtime days: (skipped - disabled in config)")
 
         # Downtime periods
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   MIN(timestamp) as min_time,
-                   MAX(timestamp) as max_time,
-                   SUM(volume) as total_volume,
-                   SUM(cost_nok) as total_cost_nok,
-                   SUM(cost_eur) as total_cost_eur
-            FROM downtime_periods
-        """)
-        downtime_periods = cursor.fetchone()
-        print(f"⏱️  Downtime periods: {downtime_periods['count']:,}")
-        if downtime_periods["count"] > 0:
-            print(
-                f"   └─ Time range: {downtime_periods['min_time']} to {downtime_periods['max_time']}"
-            )
-            if downtime_periods["total_volume"]:
-                print(f"   └─ Total lost volume: {downtime_periods['total_volume']:,.0f} MWh")
-            if downtime_periods["total_cost_nok"]:
-                print(f"   └─ Total cost NOK: {downtime_periods['total_cost_nok']:,.0f}")
-            if downtime_periods["total_cost_eur"]:
-                print(f"   └─ Total cost EUR: {downtime_periods['total_cost_eur']:,.0f}")
-
-            # Top components
+        if is_enabled(config, "fetch_downtime_periods"):
             cursor.execute("""
-                SELECT component, COUNT(*) as count, SUM(hours) as total_hours
+                SELECT COUNT(*) as count,
+                       MIN(timestamp) as min_time,
+                       MAX(timestamp) as max_time,
+                       SUM(volume) as total_volume,
+                       SUM(cost_nok) as total_cost_nok,
+                       SUM(cost_eur) as total_cost_eur
                 FROM downtime_periods
-                WHERE component IS NOT NULL
-                GROUP BY component
-                ORDER BY count DESC
-                LIMIT 5
             """)
-            components = cursor.fetchall()
-            if components:
-                print(f"   └─ Top components:")
-                for row in components:
-                    hours_str = f" ({row['total_hours']:,.0f}h)" if row["total_hours"] else ""
-                    print(f"      • {row['component']}: {row['count']}{hours_str}")
+            downtime_periods = cursor.fetchone()
+            print(f"⏱️  Downtime periods: {downtime_periods['count']:,}")
+            if downtime_periods["count"] > 0:
+                print(
+                    f"   └─ Time range: {downtime_periods['min_time']} to {downtime_periods['max_time']}"
+                )
+                if downtime_periods["total_volume"]:
+                    print(f"   └─ Total lost volume: {downtime_periods['total_volume']:,.0f} MWh")
+                if downtime_periods["total_cost_nok"]:
+                    print(f"   └─ Total cost NOK: {downtime_periods['total_cost_nok']:,.0f}")
+                if downtime_periods["total_cost_eur"]:
+                    print(f"   └─ Total cost EUR: {downtime_periods['total_cost_eur']:,.0f}")
+
+                # Top components
+                cursor.execute("""
+                    SELECT component, COUNT(*) as count, SUM(hours) as total_hours
+                    FROM downtime_periods
+                    WHERE component IS NOT NULL
+                    GROUP BY component
+                    ORDER BY count DESC
+                    LIMIT 5
+                """)
+                components = cursor.fetchall()
+                if components:
+                    print("   └─ Top components:")
+                    for row in components:
+                        hours_str = f" ({row['total_hours']:,.0f}h)" if row["total_hours"] else ""
+                        print(f"      • {row['component']}: {row['count']}{hours_str}")
+        else:
+            print("⏱️  Downtime periods: (skipped - disabled in config)")
 
         # Work items
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   COUNT(DISTINCT status) as statuses,
-                   MIN(created_at) as min_time,
-                   MAX(created_at) as max_time
-            FROM work_items
-        """)
-        work_items = cursor.fetchone()
-        print(f"📝 Work items: {work_items['count']}")
-        if work_items["count"] > 0:
-            print(f"   └─ Created range: {work_items['min_time']} to {work_items['max_time']}")
-            print(f"   └─ Statuses: {work_items['statuses']}")
-
-            # Component breakdown
+        if is_enabled(config, "fetch_work_items"):
             cursor.execute("""
-                SELECT component, COUNT(*) as count
+                SELECT COUNT(*) as count,
+                       COUNT(DISTINCT status) as statuses,
+                       MIN(created_at) as min_time,
+                       MAX(created_at) as max_time
                 FROM work_items
-                WHERE component IS NOT NULL
-                GROUP BY component
-                ORDER BY count DESC
-                LIMIT 10
             """)
-            components = cursor.fetchall()
-            if components:
-                print(f"   └─ Top components:")
-                for row in components:
-                    print(f"      • {row['component']}: {row['count']}")
+            work_items = cursor.fetchone()
+            print(f"📝 Work items: {work_items['count']}")
+            if work_items["count"] > 0:
+                print(f"   └─ Created range: {work_items['min_time']} to {work_items['max_time']}")
+                print(f"   └─ Statuses: {work_items['statuses']}")
+
+                # Component breakdown
+                cursor.execute("""
+                    SELECT component, COUNT(*) as count
+                    FROM work_items
+                    WHERE component IS NOT NULL
+                    GROUP BY component
+                    ORDER BY count DESC
+                    LIMIT 10
+                """)
+                components = cursor.fetchall()
+                if components:
+                    print("   └─ Top components:")
+                    for row in components:
+                        print(f"      • {row['component']}: {row['count']}")
+        else:
+            print("📝 Work items: (skipped - disabled in config)")
 
         # Budgets
-        cursor.execute("""
-            SELECT COUNT(*) as count,
-                   MIN(month) as min_month,
-                   MAX(month) as max_month,
-                   SUM(volume) as total_volume,
-                   SUM(revenue_nok) as total_revenue_nok,
-                   SUM(revenue_eur) as total_revenue_eur
-            FROM budgets
-        """)
-        budgets = cursor.fetchone()
-        print(f"📊 Budgets: {budgets['count']}")
-        if budgets["count"] > 0:
-            print(f"   └─ Month range: {budgets['min_month']} to {budgets['max_month']}")
-            if budgets["total_volume"]:
-                print(f"   └─ Total budgeted volume: {budgets['total_volume']:,.0f} MWh")
-            if budgets["total_revenue_nok"]:
-                print(f"   └─ Total budgeted revenue NOK: {budgets['total_revenue_nok']:,.0f}")
-            if budgets["total_revenue_eur"]:
-                print(f"   └─ Total budgeted revenue EUR: {budgets['total_revenue_eur']:,.0f}")
+        if is_enabled(config, "fetch_budgets"):
+            cursor.execute("""
+                SELECT COUNT(*) as count,
+                       MIN(month) as min_month,
+                       MAX(month) as max_month,
+                       SUM(volume) as total_volume,
+                       SUM(revenue_nok) as total_revenue_nok,
+                       SUM(revenue_eur) as total_revenue_eur
+                FROM budgets
+            """)
+            budgets = cursor.fetchone()
+            print(f"📊 Budgets: {budgets['count']}")
+            if budgets["count"] > 0:
+                print(f"   └─ Month range: {budgets['min_month']} to {budgets['max_month']}")
+                if budgets["total_volume"]:
+                    print(f"   └─ Total budgeted volume: {budgets['total_volume']:,.0f} MWh")
+                if budgets["total_revenue_nok"]:
+                    print(f"   └─ Total budgeted revenue NOK: {budgets['total_revenue_nok']:,.0f}")
+                if budgets["total_revenue_eur"]:
+                    print(f"   └─ Total budgeted revenue EUR: {budgets['total_revenue_eur']:,.0f}")
+        else:
+            print("📊 Budgets: (skipped - disabled in config)")
 
         # Sync metadata
         print()
@@ -499,4 +554,5 @@ def verify_data(db_path: str = "data/portfolio_report.db"):
 
 if __name__ == "__main__":
     db_path = sys.argv[1] if len(sys.argv) > 1 else "data/portfolio_report.db"
-    verify_data(db_path)
+    config_path = sys.argv[2] if len(sys.argv) > 2 else "config.yaml"
+    verify_data(db_path, config_path)
