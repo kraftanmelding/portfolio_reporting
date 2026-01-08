@@ -54,6 +54,7 @@ class PowerPlantsFetcher(BaseFetcher):
                         "capacity_mw": plant.get(
                             "installed_effect"
                         ),  # API: installed_effect → DB: capacity_mw
+                        "yearly_production": plant.get("yearly_production"),
                         "price_area": plant.get("price_area"),
                         "country": country,
                         "latitude": plant.get("lat"),  # API: lat → DB: latitude
