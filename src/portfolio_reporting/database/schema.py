@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS power_plants (
     portfolio_name TEXT,
     asset_class_type TEXT,
     capacity_mw REAL,
+    yearly_production REAL,
     price_area TEXT,
     country TEXT,
     latitude REAL,
