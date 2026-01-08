@@ -50,6 +50,7 @@ def verify_data(db_path: str = "data/portfolio_report.db", config_path: str = "c
                        COUNT(DISTINCT company_id) as companies,
                        SUM(capacity_mw) as total_capacity,
                        AVG(capacity_mw) as avg_capacity,
+                       SUM(yearly_production) as total_yearly_production,
                        MIN(commissioned_date) as oldest_commissioned,
                        MAX(commissioned_date) as newest_commissioned
                 FROM power_plants
@@ -61,6 +62,10 @@ def verify_data(db_path: str = "data/portfolio_report.db", config_path: str = "c
                 if plants["total_capacity"]:
                     print(
                         f"   └─ Total capacity: {plants['total_capacity']:,.1f} MW (avg: {plants['avg_capacity']:,.1f} MW)"
+                    )
+                if plants["total_yearly_production"]:
+                    print(
+                        f"   └─ Total yearly production: {plants['total_yearly_production']:,.0f} MWh"
                     )
                 if plants["oldest_commissioned"]:
                     print(
@@ -167,6 +172,7 @@ def verify_data(db_path: str = "data/portfolio_report.db", config_path: str = "c
                     SELECT
                         COUNT(*) as total,
                         COUNT(*) - COUNT(capacity_mw) as missing_capacity,
+                        COUNT(*) - COUNT(yearly_production) as missing_yearly_production,
                         COUNT(*) - COUNT(commissioned_date) as missing_commissioned,
                         COUNT(*) - COUNT(asset_class_type) as missing_type,
                         COUNT(*) - COUNT(country) as missing_country,
@@ -179,6 +185,7 @@ def verify_data(db_path: str = "data/portfolio_report.db", config_path: str = "c
                 quality = cursor.fetchone()
                 if (
                     quality["missing_capacity"] > 0
+                    or quality["missing_yearly_production"] > 0
                     or quality["missing_commissioned"] > 0
                     or quality["missing_type"] > 0
                     or quality["missing_country"] > 0
@@ -190,6 +197,10 @@ def verify_data(db_path: str = "data/portfolio_report.db", config_path: str = "c
                     print("   └─ Missing metadata:")
                     if quality["missing_capacity"] > 0:
                         print(f"      • Capacity: {quality['missing_capacity']} plants")
+                    if quality["missing_yearly_production"] > 0:
+                        print(
+                            f"      • Yearly production: {quality['missing_yearly_production']} plants"
+                        )
                     if quality["missing_commissioned"] > 0:
                         print(
                             f"      • Commissioned date: {quality['missing_commissioned']} plants"
