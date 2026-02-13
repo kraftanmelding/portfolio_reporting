@@ -725,7 +725,9 @@ class DatabaseHandler:
                     "component": record.get("component"),
                     "assigned_to": record.get("assigned_to"),
                     "due_date": record.get("due_date"),
+                    "started_on": record.get("started_on"),
                     "completed_at": record.get("completed_at"),
+                    "labels": record.get("labels"),
                     "budget_cost_nok": None,
                     "budget_cost_eur": None,
                     "elapsed_cost_nok": None,
@@ -754,11 +756,12 @@ class DatabaseHandler:
                 """
                 INSERT INTO work_items (
                     id, power_plant_id, title, description, status,
-                    priority, component, assigned_to, due_date, completed_at,
-                    budget_cost_nok, budget_cost_eur, elapsed_cost_nok, elapsed_cost_eur,
+                    priority, component, assigned_to, due_date, started_on,
+                    completed_at, labels, budget_cost_nok, budget_cost_eur,
+                    elapsed_cost_nok, elapsed_cost_eur,
                     forecast_cost_nok, forecast_cost_eur, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     title = excluded.title,
                     description = excluded.description,
@@ -767,7 +770,9 @@ class DatabaseHandler:
                     component = excluded.component,
                     assigned_to = excluded.assigned_to,
                     due_date = excluded.due_date,
+                    started_on = excluded.started_on,
                     completed_at = excluded.completed_at,
+                    labels = excluded.labels,
                     budget_cost_nok = excluded.budget_cost_nok,
                     budget_cost_eur = excluded.budget_cost_eur,
                     elapsed_cost_nok = excluded.elapsed_cost_nok,
@@ -786,7 +791,9 @@ class DatabaseHandler:
                     combined_record["component"],
                     combined_record["assigned_to"],
                     combined_record["due_date"],
+                    combined_record["started_on"],
                     combined_record["completed_at"],
+                    combined_record["labels"],
                     combined_record["budget_cost_nok"],
                     combined_record["budget_cost_eur"],
                     combined_record["elapsed_cost_nok"],
